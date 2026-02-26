@@ -18,17 +18,16 @@ import fycus
 # =============================================================================
 
 
-
-filter_size = 5 
-contrast = 6 
-LAYER = 5
+filter_size = 3
+contrast = 6
+LAYER =  9
 CLASS = 889
 device = 'cuda:1'
-NCHAN = 10 
+NCHAN = 12
 CHANNELS = NCHAN
 use_norm = False 
 
-F = fycus.Fycus(f'mask_vis_{NCHAN}_channels_layer_{LAYER}_class_{CLASS}_normed_{use_norm}')
+F = fycus.Fycus('fff')
 F.XX(2,2)
 
 
@@ -46,15 +45,21 @@ def sign_split(M):
 
 # img_idxs = [22801, 22819, 44475, 44485, 44498, 24314, 24316, 24323, 32117, 32128, 32148]
 # img_idxs = [22801, 44453, 44488]#  22819, 44475, 44485, 44498, 24314, 24316, 24323, 32117, 32128, 32148]
-img_idxs = [24326, 24348, 44488, 44493, 44453, 44468, 32109, 32128]   #, 22801, 22819, 22818, 44453, 44488, 24314, 24319, 32109, 32128]#  22819, 44475, 44485, 44498, 24314, 24316, 24323, 32117, 32128, 32148]
+img_idxs = [24348, 24326, 44488, 44493, 44453, 44468, 32109, 32128]   #, 22801, 22819, 22818, 44453, 44488, 24314, 24319, 32109, 32128]#  22819, 44475, 44485, 44498, 24314, 24316, 24323, 32117, 32128, 32148]
 
 for img_idx in img_idxs:
-    for WHICH_MODE in [0, 1, 2, 3, 4]: #, 5, 6, 7, -1, -2, -3, -4]:
+    for WHICH_MODE in [1, 2, 3, 4, 5,6,7,8]: #, 5, 6, 7, -1, -2, -3, -4]:
 
-        mode_summary_path = '/data/h5s/int_grad_top_1_False_resnet50_steps_10/saes/aleph_contributions_positive/mode_summary.h5'
+        # mode_summary_path = '/data/h5s/int_grad_top_1_False_resnet50_steps_10/saes/aleph_contributions_positive/mode_summary.h5'
+        mode_summary_path = '/data/h5s/act_normgrad_top_1_False_resnet50/saes/aleph_contributions_positive/mode_summary.h5'
+
         mode_summary = bic.ModeSummary(mode_summary_path)
         mode_idx, atom, mode_loadings, corr = bic.get_top_mode(mode_summary, LAYER, CLASS, WHICH_MODE)
         chan_idxs, vals = bic.top_n(atom, CHANNELS)
+
+        if CHANNELS == 'all':
+            chan_idxs = np.arange(atom.shape[0])
+            print(f'Using all channels: {len(chan_idxs)}')
         top_channels = list(np.sort(chan_idxs))
 
 
@@ -76,7 +81,7 @@ for img_idx in img_idxs:
         X.requires_grad_(True)
 
         Y = model(X)
-        # Y = torch.nn.Softmax(dim=1)(Y)
+        Y = torch.nn.Softmax(dim=1)(Y)
 
         activations = inspector.activations[0]
 
@@ -162,7 +167,7 @@ for img_idx in img_idxs:
         plt.tight_layout()
         # ---------------------------------------------------------------------
         X_np = X.cpu().detach()[0].permute(1,2,0).numpy()
-        X_vis = bic.normalize_symmetric(X_np)
+        X_vis = bic.normalize(X_np)
 
         XJyJz = np.einsum('abc,abc->abc', JyJz, X_np)
         PosXJyJz = np.einsum('abc,abc->abc', PosJyJz, X_np)
@@ -172,81 +177,72 @@ for img_idx in img_idxs:
         XJyJzNorm = np.einsum('abc,abc->abc', JyJzNorm, X_np)
 
 
-        A, B = 3,3
-        # # These numbers may change, so select based on index not on two-digit labels
 
         normalize = lambda x: (x) / (np.max(np.abs(x)) + 1e-8)
 
-        if use_norm:
-            JyJz = JyJzNorm
-            PosJyJz = PosJyJzNorm
-            NegJyJz = NegJyJzNorm
-            XJyJz = XJyJzNorm 
-            PosXJyJz = PosXJyJzNorm
-            NegXJyJz = NegXJyJzNorm
+        # if use_norm:
+        #     JyJz = JyJzNorm
+        #     PosJyJz = PosJyJzNorm
+        #     NegJyJz = NegJyJzNorm
+        #     XJyJz = XJyJzNorm 
+        #     PosXJyJz = PosXJyJzNorm
+        #     NegXJyJz = NegXJyJzNorm
 
-        fig, ax = plt.subplots(A, B)
-        F.XX(1.5,1.5)
-        fig.suptitle(f'Image Index: {img_idx} | Mode: {WHICH_MODE}')
+        fig, ax = plt.subplots(1, 2, figsize=(10,5))
 
-        ax[0,0].imshow(X_vis, interpolation='none')
-        ax[0,0].set_title('Input Image')
-
-        ax[0,1].imshow(normalize(np.abs(JyJz))*contrast, interpolation='none')
-        ax[0,1].set_title('JyJz')
-
-        ax[0,2].imshow(normalize(np.abs(PosJyJz))*contrast, interpolation='none')
-        ax[0,2].set_title('JyJz + only')
-
-
-        ax[1,0].imshow(normalize(np.abs(XJyJz))*contrast, interpolation='none')
-        ax[1,0].set_title('XJyJz')
-
-        ax[1,1].imshow(normalize(np.abs(PosXJyJz))*contrast, interpolation='none')
-        ax[1,1].set_title('XJyJz + only')
-
-        ax[1,2].imshow(normalize(np.abs(NegXJyJz))*contrast, interpolation='none')
-        ax[1,2].set_title('XJyJz - only')
-
-
-        # mask = np.abs(XJyJz)
         mask, _, _ = sign_split(XJyJz)
-        mask = mask / (np.max(mask) + 1e-8)
-        mask *= contrast
+        # mask = mask.mean(axis=2)[:,:,np.newaxis]
 
         if filter_size > 1:
-            mask = median_filter(mask, size=filter_size)
+            mask = [median_filter(mask[:,:,c], size=filter_size) for c in range(3)]
+            mask = np.stack(mask, axis=2)
+            # mask = median_filter(mask, size=filter_size)
+        mask = np.max(mask, axis=2)[:,:,np.newaxis]
+        mask = mask - np.min(mask)
+        mask = mask / (np.max(mask) + 1e-8)
+
+        mask *= contrast
+
         mask = np.clip(mask, 0, 1) 
-        mask = np.max(mask, axis=2)[:,:,np.newaxis]
+        # mask = bic.normalize(mask)
+        # mask = mask - np.min(mask)
+        # mask = mask / (np.max(mask) + 1e-8)
+
+
         masked_image = X_vis * mask
-        ax[2,0].imshow(masked_image, interpolation='none')
-        ax[2,0].set_title('XJyJz Masked Image')
 
-        mask, _, _ = sign_split(PosXJyJz)
-        # mask = np.abs(PosXJyJz)
-        mask = mask / (np.max(mask) + 1e-8)
-        mask *= contrast
+        fig, ax = plt.subplots(1, 2, figsize=(10,5))
+        ax[0].imshow(X_vis, interpolation='none')
+        ax[0].set_title('Original Image')
+        ax[1].imshow(masked_image, interpolation='none')
+        ax[1].set_title(f'Masked Image (Mode {WHICH_MODE})')
+        F.save(f'{img_idx}_mode_{WHICH_MODE}_combined', dpi=150)
 
-        if filter_size > 1:
-            mask = median_filter(mask, size=filter_size)
+        # mask, _, _ = sign_split(PosXJyJz)
+        # # mask = np.abs(PosXJyJz)
+        # mask = mask / (np.max(mask) + 1e-8)
+        # mask *= contrast
 
-        mask = np.clip(mask, 0, 1)
-        mask = np.max(mask, axis=2)[:,:,np.newaxis]
-                                    # Combine across color channels
-        masked_image = X_vis * mask
-        ax[2,1].imshow(masked_image, interpolation='none')
-        ax[2,1].set_title('XJyJz + Masked Image')
+        # if filter_size > 1:
+        #     mask = median_filter(mask, size=filter_size)
 
-        mask, _, _ = sign_split(NegXJyJz)
-        mask = mask / (np.max(mask) + 1e-8)
-        mask *= contrast
-        if filter_size > 1:
-            mask = median_filter(mask, size=filter_size)
-        mask = np.clip(mask, 0, 1)
-        mask = np.max(mask, axis=2)[:,:,np.newaxis]
-        masked_image = X_vis * mask
-        ax[2,2].imshow(masked_image, interpolation='none')
-        ax[2,2].set_title('XJyJz - Masked Image')
-        F.save(f'{img_idx}_mode_{WHICH_MODE}.png', dpi=150)
+        # mask = np.clip(mask, 0, 1)
+        # mask = np.max(mask, axis=2)[:,:,np.newaxis]
+        #                             # Combine across color channels
+        # masked_image = X_vis * mask
+        # # ax[2,1].imshow(masked_image, interpolation='none')
+        # # ax[2,1].set_title('XJyJz + Masked Image')
+
+        # mask, _, _ = sign_split(NegXJyJz)
+        # mask = mask / (np.max(mask) + 1e-8)
+        # mask *= contrast
+        # if filter_size > 1:
+        #     mask = median_filter(mask, size=filter_size)
+        # mask = np.clip(mask, 0, 1)
+        # mask = np.max(mask, axis=2)[:,:,np.newaxis]
+        # masked_image = X_vis * mask
+        # # ax[2,2].imshow(masked_image, interpolation='none')
+        # ax[2,2].set_title('XJyJz - Masked Image')
+        # F.save(f'{img_idx}_mode_{WHICH_MODE}.png', dpi=150)
 
 

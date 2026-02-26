@@ -18,16 +18,16 @@ import fycus
 # =============================================================================
 
 
-filter_size = 3
+filter_size = 2
 contrast = 6
-LAYER =  9
+LAYER = 6
 CLASS = 889
 device = 'cuda:1'
-NCHAN = 12
+NCHAN = 5
 CHANNELS = NCHAN
 use_norm = False 
 
-F = fycus.Fycus('fff')
+F = fycus.Fycus('wnnn_with_mask')
 F.XX(2,2)
 
 
@@ -86,6 +86,15 @@ for img_idx in img_idxs:
         activations = inspector.activations[0]
 
         Jy = torch.autograd.grad(Y[:,SPECIFIC_CLASS_IDX].sum(), activations, retain_graph=True)[0].cpu().detach().numpy()
+
+        
+        _mean=[0.485, 0.456, 0.406]
+        _std=[0.229, 0.224, 0.225]
+
+        torch_mean = torch.tensor(_mean).view(1,3,1,1).to(DEVICE)
+        torch_std = torch.tensor(_std).view(1,3,1,1).to(DEVICE)
+
+
 
 
         mode_activations = activations[:, top_channels, :, :]
@@ -167,7 +176,12 @@ for img_idx in img_idxs:
         plt.tight_layout()
         # ---------------------------------------------------------------------
         X_np = X.cpu().detach()[0].permute(1,2,0).numpy()
-        X_vis = bic.normalize(X_np)
+
+        np_std = np.array(_std)[np.newaxis, np.newaxis, :]
+        np_mean = np.array(_mean)[np.newaxis, np.newaxis, :]
+        X_vis = X_np * np_std + np_mean
+        # X_vis = X_np-np.min(X_np)
+        # X_vis = X_vis / (np.max(X_vis) + 1e-8)
 
         XJyJz = np.einsum('abc,abc->abc', JyJz, X_np)
         PosXJyJz = np.einsum('abc,abc->abc', PosJyJz, X_np)
@@ -188,26 +202,30 @@ for img_idx in img_idxs:
         #     PosXJyJz = PosXJyJzNorm
         #     NegXJyJz = NegXJyJzNorm
 
-        fig, ax = plt.subplots(1, 2, figsize=(10,5))
+        fig, ax = plt.subplots(1, 3, figsize=(10,5))
+        
+        # XJyJz = XJyJz * _std[..., np.newaxis, np.newaxis] + _mean[..., np.newaxis, np.newaxis]
+        # This doesn't work, add axes to _std and _mean to match the shape of XJyJz
 
-        mask, _, _ = sign_split(XJyJz)
-        # mask = mask.mean(axis=2)[:,:,np.newaxis]
+        # std = np.array(_std)[np.newaxis, np.newaxis, :]
+        # mean = np.array(_mean)[np.newaxis, np.newaxis, :]
 
-        if filter_size > 1:
-            mask = [median_filter(mask[:,:,c], size=filter_size) for c in range(3)]
-            mask = np.stack(mask, axis=2)
-            # mask = median_filter(mask, size=filter_size)
-        mask = np.max(mask, axis=2)[:,:,np.newaxis]
+        mask, _, _ = sign_split(PosXJyJz)
+        mask = mask.max(axis=2)[:,:,np.newaxis]
+
+        # mask = [median_filter(mask[:,:,c], size=filter_size) for c in range(3)]
+        # mask = np.stack(mask, axis=2)
+
+        # if filter_size > 1:
+
+        #     # mask = median_filter(mask, size=filter_size)
+        # mask = np.max(mask, axis=2)[:,:,np.newaxis]
         mask = mask - np.min(mask)
         mask = mask / (np.max(mask) + 1e-8)
 
         mask *= contrast
 
         mask = np.clip(mask, 0, 1) 
-        # mask = bic.normalize(mask)
-        # mask = mask - np.min(mask)
-        # mask = mask / (np.max(mask) + 1e-8)
-
 
         masked_image = X_vis * mask
 
@@ -216,7 +234,9 @@ for img_idx in img_idxs:
         ax[0].set_title('Original Image')
         ax[1].imshow(masked_image, interpolation='none')
         ax[1].set_title(f'Masked Image (Mode {WHICH_MODE})')
-        F.save(f'{img_idx}_mode_{WHICH_MODE}_combined', dpi=150)
+        ax[2].imshow(mask, cmap='gray', interpolation='none', clim=(0,1))
+        F.XX(1,2)
+        F.save(f'{img_idx}_mode_{WHICH_MODE}', dpi=150)
 
         # mask, _, _ = sign_split(PosXJyJz)
         # # mask = np.abs(PosXJyJz)

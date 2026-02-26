@@ -25,7 +25,8 @@ for datatype in ['activations', 'contributions']:
     mode_summary = bic.ModeSummary(mode_summary_path)
     print(mode_summary.layers)
 
-    avgs = []
+    class_avgs = []
+    mode_avgs = []
     # layers_to_use=[0,4,9,14]
     layers_to_use=[2,6,12,15]
     for layer_idx, layer in enumerate(mode_summary.layers):
@@ -35,32 +36,91 @@ for datatype in ['activations', 'contributions']:
         num_modes = correlation_matrix.shape[0]
         num_classes = correlation_matrix.shape[1]
 
-        # Sort each row 
-        sorted_indices = np.argsort(correlation_matrix, axis=1)[:, ::-1]
-        sorted_correlation_matrix = np.take_along_axis(correlation_matrix, sorted_indices, axis=1)
+        assert num_classes == 1000, "Expected 1000 classes for ImageNet, got {}".format(num_classes)
+        
+        class_coverage = []
+        for class_idx in range(num_classes):
+            sorted_indices = np.argsort(correlation_matrix[:, class_idx])[::-1]
+            sorted_class_corrs = correlation_matrix[sorted_indices, class_idx]
+            class_coverage.append(sorted_class_corrs)
 
-        avgs.append(sorted_correlation_matrix.mean(axis=0))
+        class_coverage = np.array(class_coverage)  # Shape: (num_classes, num_modes)
+        class_avgs.append(np.nanmean(class_coverage,0))  # Average correlation across classes for each mode
+
+        mode_coverage = []
+        for mode_idx in range(num_modes):
+            sorted_indices = np.argsort(correlation_matrix[mode_idx, :])[::-1]
+            sorted_mode_corrs = correlation_matrix[mode_idx, sorted_indices]
+            mode_coverage.append(sorted_mode_corrs)
+        mode_coverage = np.array(mode_coverage)  # Shape: (num_modes, num_classes)
+        mode_avgs.append(np.nanmean(mode_coverage,0))  # Average correlation across classes for each mode
+
+        
 
 
-    for avg, layer in zip(avgs, layers_to_use):
+    # Plotting the average sorted CLASS correlation for each layer
+
+    for avg, layer in zip(class_avgs, layers_to_use):
         plt.plot(avg, label='Layer {}'.format(layer))
 
+    plt.xlabel('Class Index (sorted by correlation)')
+    plt.ylabel('Average Correlation')
+    plt.ylim(0, 0.55)
+
+    plt.title('Average Sorted Correlation for Each Layer')
+    F.XX(0.5,1.5)
+    plt.legend()
+    F.save('class_coverage_{}'.format(datatype))
+
+    for avg, layer in zip(mode_avgs, layers_to_use):
+        plt.plot(avg, label='Layer {}'.format(layer))
     plt.xlabel('Class Index (sorted by correlation)')
     plt.ylabel('Average Correlation')
     plt.ylim(0, 0.55)
     plt.title('Average Sorted Correlation for Each Layer')
     F.XX(0.5,1.5)
     plt.legend()
-    F.save('average_sorted_correlation_{}'.format(datatype))
+    F.save('mode_coverage_{}'.format(datatype))
 
-    for avg, layer in zip(avgs, layers_to_use):
-        plt.plot(avg, label='Layer {}'.format(layer))
-
-    plt.xlim(0,50)
-    plt.xlabel('Class Index (sorted by correlation)')
+    # Make same plots but zoomed into top 40
+    for avg, layer in zip(class_avgs, layers_to_use):
+        plt.plot(avg[:60], label='Layer {}'.format(layer))
+    plt.xlabel('Mode Index (sorted by correlation)')
     plt.ylabel('Average Correlation')
-    plt.title('Average Sorted Correlation for Each Layer')
-    F.XX(0.5,0.5)
+    plt.ylim(0, 0.55)
+    plt.title('Average Sorted Correlation for Each Layer (Top 60)')
+    F.XX(0.5,1.0)
     plt.legend()
-    F.save('zoom_average_sorted_correlation_{}'.format(datatype))
+    F.save('class_coverage_top60_{}'.format(datatype))
+
+    for avg, layer in zip(mode_avgs, layers_to_use):
+        plt.plot(avg[:60], label='Layer {}'.format(layer))
+    plt.xlabel('Mode Index (sorted by correlation)')
+    plt.ylabel('Average Correlation')
+
+    plt.ylim(0, 0.55)
+    plt.title('Average Sorted Correlation for Each Layer (Top 60)')
+    F.XX(0.5,1.0)
+    plt.legend()
+    F.save('mode_coverage_top60_{}'.format(datatype))
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

@@ -2,7 +2,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py as h5
-import bopt
 import os
 import numpy as np
 import torch
@@ -12,8 +11,6 @@ import tqdm
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import h5py as h5
-import bopt
-from voltron import revcorr
 import bscope
 
 def crop_around_peak_20x20(spatial_filter):
@@ -48,32 +45,34 @@ def crop_around_peak_20x20(spatial_filter):
     
     return cropped
 
-def load_irfs(file_path, cell_id):
+def load_irfs(file_path, cell_id, load_ig_irf=False):
     """
     Load IRF data for a specific cell from the saved HDF5 file.
-    
+
     Args:
         file_path: Path to the HDF5 file
         cell_id: ID of the cell to load
-        
+        load_ig_irf: if True, also load ig_irf_mean and ig_irf_all (default True);
+                     set to False to load only regular IRF data
+
     Returns:
         dict with 'regular_irf_mean', 'regular_irf_all', and optionally 'ig_irf_mean', 'ig_irf_all'
     """
     with h5.File(file_path, 'r') as f:
         cell_grp = f[f'cell_{cell_id}']
-        
+
         result = {
             'regular_irf_mean': cell_grp['regular_irf_mean'][:],
             'regular_irf_all': cell_grp['regular_irf_all'][:],
             'cell_id': cell_grp.attrs['cell_id'],
             'cell_index': cell_grp.attrs['cell_index']
         }
-        
-        # Only load IG-IRF if it exists
-        if 'ig_irf_mean' in cell_grp:
+
+        # Only load IG-IRF if requested and it exists
+        if load_ig_irf and 'ig_irf_mean' in cell_grp:
             result['ig_irf_mean'] = cell_grp['ig_irf_mean'][:]
             result['ig_irf_all'] = cell_grp['ig_irf_all'][:]
-        
+
         return result
 
 
@@ -285,9 +284,8 @@ for cell_id in available_cells:
     # Load data for this cell
     data = load_irfs(file_path, cell_id)
     print(f"Cell ID: {data['cell_id']}, Cell Index: {data['cell_index']}")
-    ig_irf_all = data['ig_irf_all']
     regular_irf_all = data['regular_irf_all']
-    print(f"IG IRF All Shape: {ig_irf_all.shape}, Regular IRF All Shape: {regular_irf_all.shape}")
+    print(f"Regular IRF All Shape: {regular_irf_all.shape}")
 
 
 
@@ -312,7 +310,7 @@ for cell_id in available_cells:
         fig, ax = plt.subplots(1,2)
 
         fig.suptitle(f'spatial component, IRF at {timepoint} for cell {cell_id}')
-        decomp = bopt.decompose(regular_irf_atom_at_time, k=1)
+        decomp = bscope.decompose(regular_irf_atom_at_time, k=1)
         cropped_decomp=crop_around_peak_20x20(decomp[0][0])
         clim = np.max(np.abs(decomp[0]))
         im = ax[0].imshow(cropped_decomp, cmap='RdBu_r', vmin=-clim, vmax=clim)
@@ -321,7 +319,6 @@ for cell_id in available_cells:
         ax[1].plot(decomp[1][0])
         peak_frame = np.argmax(np.abs(decomp[1]))
         ax[1].set_title(f'Temporal Filter, Peak at frame {peak_frame}')
-        output_dir = f'/home/zalaoui/higanbana/svgs'
         plt.show()
 
         

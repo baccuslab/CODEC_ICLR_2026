@@ -5,10 +5,10 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import bscope
-from skkm import Figaro
+from fycus import Fycus
 
 
-F = Figaro(fig_dir='hyperparam', base_path='/home/zalaoui/higanbana/STSAE')
+F = Fycus('hyperparam', base_path='/home/zalaoui/higanbana/STSAE')
 
 
 

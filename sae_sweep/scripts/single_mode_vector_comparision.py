@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 import glob
 import os
 import bscope
-from skkm import Figaro
+from fycus import Fycus
 
-F = Figaro(fig_dir='hyperparam', base_path='/home/zalaoui/higanbana/STSAE')
+F = Fycus('hyperparam', base_path='/home/zalaoui/higanbana/STSAE')
 
 
 # Black widow spider class index
@@ -15,7 +15,7 @@ CLASS_IDX = 75
 LAYER = 15
 CORR_THRESHOLD = 0.2
 
-mode_types = ['sum', 'top']
+mode_types = ['sum']
 
 
 
@@ -163,5 +163,3 @@ for mode in mode_types:
     # F.XX(1.0, 1.5)
     # F.save(f'single_mode_vector_comparison_class{CLASS_IDX}_layer{LAYER}_all_params_{mode_type}')
     plt.show()
-    print('FIGURE SAVED VIA FIGARO')
-    # plt.show()

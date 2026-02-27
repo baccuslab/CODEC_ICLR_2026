@@ -6,11 +6,11 @@ from scipy import stats
 import os
 import glob
 import bscope
-from skkm import Figaro
+from fycus import Fycus
 
 
 RESULTS_DIR = os.path.expanduser('~/codec_zaki/iclr_scripts/STSAE_ABLATIONS_MODEFIX')
-F = Figaro(fig_dir='hyperparam', base_path='/home/zalaoui/higanbana/STSAE')
+F = Fycus('hyperparam', base_path='/home/zalaoui/higanbana/STSAE')
 colors = plt.cm.tab10.colors
 
 TOPK = 'top1'
@@ -249,7 +249,6 @@ ax.set_title('MLP Size')
 ax.legend(frameon=False, fontsize=8)
 ax.set_ylim(-1.1, 1.4)
 
-plt.suptitle(f'Hyperparameter Comparison (N trials={n_trials})')
 
 plt.subplots_adjust(hspace=0.35)
 
@@ -259,9 +258,10 @@ for i in [0,3]:
     axes[i].set_ylabel('AUC')
 axes[5].axis('off')  # Add this at the end before plt.show()
 plt.tight_layout()
-# plt.show()
+
 
 # Uncomment to save:
-F.XX(1.0,1.5) 
-F.save('ablations_comparison_final_arxiv_STSAE_TOPMODE')
+# F.XX(1.0,1.5) 
+# F.save('ablations_comparison_final_arxiv_STSAE_TOPMODE')
 
+plt.show()

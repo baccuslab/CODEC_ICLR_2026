@@ -61,11 +61,12 @@ for datatype in ['activations', 'contributions']:
     # Plotting the average sorted CLASS correlation for each layer
 
     for avg, layer in zip(class_avgs, layers_to_use):
+        print(avg.shape)
         plt.plot(avg, label='Layer {}'.format(layer))
 
     plt.xlabel('Class Index (sorted by correlation)')
     plt.ylabel('Average Correlation')
-    plt.ylim(0, 0.55)
+    plt.ylim(0, 0.75)
 
     plt.title('Average Sorted Correlation for Each Layer')
     F.XX(0.5,1.5)
@@ -73,10 +74,11 @@ for datatype in ['activations', 'contributions']:
     F.save('class_coverage_{}'.format(datatype))
 
     for avg, layer in zip(mode_avgs, layers_to_use):
+        print(avg.shape)
         plt.plot(avg, label='Layer {}'.format(layer))
     plt.xlabel('Class Index (sorted by correlation)')
     plt.ylabel('Average Correlation')
-    plt.ylim(0, 0.55)
+    plt.ylim(0, 0.75)
     plt.title('Average Sorted Correlation for Each Layer')
     F.XX(0.5,1.5)
     plt.legend()
@@ -87,7 +89,7 @@ for datatype in ['activations', 'contributions']:
         plt.plot(avg[:60], label='Layer {}'.format(layer))
     plt.xlabel('Mode Index (sorted by correlation)')
     plt.ylabel('Average Correlation')
-    plt.ylim(0, 0.55)
+    plt.ylim(0, 0.75)
     plt.title('Average Sorted Correlation for Each Layer (Top 60)')
     F.XX(0.5,1.0)
     plt.legend()
@@ -98,7 +100,7 @@ for datatype in ['activations', 'contributions']:
     plt.xlabel('Mode Index (sorted by correlation)')
     plt.ylabel('Average Correlation')
 
-    plt.ylim(0, 0.55)
+    plt.ylim(0, 0.75)
     plt.title('Average Sorted Correlation for Each Layer (Top 60)')
     F.XX(0.5,1.0)
     plt.legend()

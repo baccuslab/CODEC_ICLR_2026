@@ -16,11 +16,11 @@ import bscope.ic as bic
 
 
 SEMANTIC_JSON_PATH = '/data/hierarchy_metadata/pruned_hierarchy.json'
-directory= '/data/h5s/act_normgrad_top_1_False_resnet50/'
-# directory= '/data/h5s/int_grad_top_1_False_resnet50_steps_10/'
+# directory= '/data/h5s/act_normgrad_top_1_True_resnet50/'
+directory= '/data/h5s/int_grad_top_1_True_resnet50_steps_10/'
 TYPES = [['contributions', 'positive'], ['activations', 'positive']]
 
-DEVICE = 'cuda:0'
+DEVICE = 'cuda:1'
 
 RUN = 'gimmel' # Identifier for this run, used in naming the saved SAEs
 

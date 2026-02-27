@@ -7,7 +7,7 @@ import os
 
 
 h5_keywords = ['act_normgrad', 'False']
-sae_keywords = ['aleph', 'sum']
+sae_keywords = ['gimmel', 'positive']
 
 
 top_level_directories = glob.glob('/data/h5s/*')

@@ -25,11 +25,11 @@ LAYER = 7
 CLASS = 889 #violin
 # CLASS = 642 # marimba
 device = 'cuda:0'
-NCHAN = 20
+NCHAN = 5
 CHANNELS = NCHAN
-use_norm = False 
+use_norm = False
 
-F = fycus.Fycus('channels_{}_filt_{}_contrast_{}_layer_{}_class_{}'.format(NCHAN, filter_size, contrast, LAYER, CLASS))
+F = fycus.Fycus('normed_channels_{}_filt_{}_contrast_{}_layer_{}_class_{}'.format(NCHAN, filter_size, contrast, LAYER, CLASS))
 F.XX(2,2)
 
 
@@ -103,6 +103,11 @@ for count, img_idx in enumerate(img_idxs):
         if CHANNELS == 'all':
             chan_idxs = np.arange(atom.shape[0])
             print(f'Using all channels: {len(chan_idxs)}')
+
+        # Normalize channel weights by the max atom value among the top channels
+        max_val = np.max(np.abs(vals))
+        channel_weight_map = {cidx: v / max_val for cidx, v in zip(chan_idxs, vals)}
+
         top_channels = list(np.sort(chan_idxs))
 
 
@@ -126,7 +131,7 @@ for count, img_idx in enumerate(img_idxs):
 
         Jy = torch.autograd.grad(Y[:,SPECIFIC_CLASS_IDX].sum(), activations, retain_graph=True)[0].cpu().detach().numpy()
 
-        
+
         _mean=[0.485, 0.456, 0.406]
         _std=[0.229, 0.224, 0.225]
 
@@ -142,7 +147,7 @@ for count, img_idx in enumerate(img_idxs):
         shuffled_indices = np.random.permutation(len(top_channels))
         shuf_mode_activations = mode_activations[:, shuffled_indices, :, :]
 
-        assert torch.allclose(mode_activations[:, shuffled_indices, :, :], shuf_mode_activations), "Shuffling the channels should not change the activations" 
+        assert torch.allclose(mode_activations[:, shuffled_indices, :, :], shuf_mode_activations), "Shuffling the channels should not change the activations"
 
 
         mode_Jy = Jy[:, top_channels, :, :]
@@ -169,6 +174,9 @@ for count, img_idx in enumerate(img_idxs):
         first = True
 
         for _k in tqdm.tqdm(range(NCHAN)):
+            # Weight for this channel: atom value normalized by max atom value
+            channel_weight = channel_weight_map[top_channels[_k]]
+
             for _h in range(h):
                 for _w in range(w):
                     _Jz = torch.autograd.grad(mode_activations[0,_k,_h,_w], X, retain_graph=True)[0].cpu().detach().numpy()
@@ -204,15 +212,19 @@ for count, img_idx in enumerate(img_idxs):
                         first = False
 
                     if _C > 0:
-                        PossumJyJz += J
-                        PossumXJyJz += np.einsum('abcd,abcd->abcd', J, X.cpu().detach().numpy())
-                        PossumJyJzNorm += _JyJzNorm
-                        PossumXJyJzNorm += np.einsum('abcd,abcd->abcd', _JyJzNorm, X.cpu().detach().numpy())
+                        PossumJyJz += J * channel_weight
+                        PossumXJyJz += np.einsum('abcd,abcd->abcd', J, X.cpu().detach().numpy()) * channel_weight
+                        PossumJyJzNorm += _JyJzNorm * channel_weight
+                        PossumXJyJzNorm += np.einsum('abcd,abcd->abcd', _JyJzNorm, X.cpu().detach().numpy()) * channel_weight
                     else:
-                        NegsumJyJz += J
-                        NegsumXJyJz += np.einsum('abcd,abcd->abcd', J, X.cpu().detach().numpy())
-                        NegsumJyJzNorm += _JyJzNorm
-                        NegsumXJyJzNorm += np.einsum('abcd,abcd->abcd', _JyJzNorm, X.cpu().detach().numpy())
+                        NegsumJyJz += J * channel_weight
+                        NegsumXJyJz += np.einsum('abcd,abcd->abcd', J, X.cpu().detach().numpy()) * channel_weight
+                        NegsumJyJzNorm += _JyJzNorm * channel_weight
+                        NegsumXJyJzNorm += np.einsum('abcd,abcd->abcd', _JyJzNorm, X.cpu().detach().numpy()) * channel_weight
+
+                    Jz[_k, _h, _w, :, :, :] = _Jz * channel_weight
+                    Jy_arr[_k, _h, _w] = _Jy * channel_weight
+                    JyJz[_k, _h, _w, :, :, :] = J *channel_weight
 
 
         JyJz = JyJz.sum(axis=(0,1,2)).transpose(1,2,0)
@@ -249,12 +261,12 @@ for count, img_idx in enumerate(img_idxs):
         #     JyJz = JyJzNorm
         #     PosJyJz = PosJyJzNorm
         #     NegJyJz = NegJyJzNorm
-        #     XJyJz = XJyJzNorm 
+        #     XJyJz = XJyJzNorm
         #     PosXJyJz = PosXJyJzNorm
         #     NegXJyJz = NegXJyJzNorm
 
         fig, ax = plt.subplots(1, 3, figsize=(10,5))
-        
+
         # XJyJz = XJyJz * _std[..., np.newaxis, np.newaxis] + _mean[..., np.newaxis, np.newaxis]
         # This doesn't work, add axes to _std and _mean to match the shape of XJyJz
 
@@ -279,7 +291,7 @@ for count, img_idx in enumerate(img_idxs):
 
         mask *= contrast
 
-        mask = np.clip(mask, 0, 1) 
+        mask = np.clip(mask, 0, 1)
 
         masked_image = X_vis * mask[:,:,np.newaxis]
 
@@ -291,33 +303,3 @@ for count, img_idx in enumerate(img_idxs):
         ax[2].imshow(mask, cmap='gray', interpolation='none', clim=(0,1))
         F.XX(1,2)
         F.save(f'{img_idx}_mode_{WHICH_MODE}', dpi=150)
-        # F.save(f'{img_idx}_mode_{WHICH_MODE}', dpi=150)
-
-        # mask, _, _ = sign_split(PosXJyJz)
-        # # mask = np.abs(PosXJyJz)
-        # mask = mask / (np.max(mask) + 1e-8)
-        # mask *= contrast
-
-        # if filter_size > 1:
-        #     mask = median_filter(mask, size=filter_size)
-
-        # mask = np.clip(mask, 0, 1)
-        # mask = np.max(mask, axis=2)[:,:,np.newaxis]
-        #                             # Combine across color channels
-        # masked_image = X_vis * mask
-        # # ax[2,1].imshow(masked_image, interpolation='none')
-        # # ax[2,1].set_title('XJyJz + Masked Image')
-
-        # mask, _, _ = sign_split(NegXJyJz)
-        # mask = mask / (np.max(mask) + 1e-8)
-        # mask *= contrast
-        # if filter_size > 1:
-        #     mask = median_filter(mask, size=filter_size)
-        # mask = np.clip(mask, 0, 1)
-        # mask = np.max(mask, axis=2)[:,:,np.newaxis]
-        # masked_image = X_vis * mask
-        # # ax[2,2].imshow(masked_image, interpolation='none')
-        # ax[2,2].set_title('XJyJz - Masked Image')
-        # F.save(f'{img_idx}_mode_{WHICH_MODE}.png', dpi=150)
-
-

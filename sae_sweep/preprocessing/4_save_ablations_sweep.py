@@ -48,7 +48,7 @@ hyperparameter_groups = {
         ]
     },
     
-    'atom_l1': {
+    'mode_l1': {
         'sweep_dir': 'sweep_int_grad_top_1_False_resnet50_steps_10_483_positive_STSAE', 
         'configs': [
             'hypersweep_0.9_5_0',

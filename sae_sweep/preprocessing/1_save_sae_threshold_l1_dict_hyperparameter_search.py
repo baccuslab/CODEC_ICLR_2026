@@ -18,13 +18,15 @@ LAYERS_TO_TRAIN = [3, 7, 13, 15]
 sweep_config = {
     'method': 'grid',
     'parameters': {
-        'NONNEGATIVE': {
-            'values': [True, False]
+        'N': {
+            'values': [1, 3, 5]
         },
-        'MLP_SIZE': {
-            'values': [128,512,2048,4096]
+        'THRESHOLD': {
+            'values': [0.5, 0.7, 0.9]
         },
-
+        'MODE_L1': {
+            'values': [0, 1e-2, 1e-4]  
+        }
     }
 }
 
@@ -34,20 +36,15 @@ def train_sae(seed):
     config = wandb.config
     
 
-
-
-
     # Training parameters
     BATCH_SIZE = 128
     CODE_L1 = None
-    N = 5 
-    THRESHOLD = .5
-    ATOM_L1 = 1e-4
-    EPOCHS = 200
+    N = config.N  
+    THRESHOLD = config.THRESHOLD
+    MODE_L1 = config.MODE_L1 if config.MODE_L1 > 0 else None
     LEARNING_RATE = 5e-5
-    MLP_HIDDEN_SIZE = config.MLP_SIZE
-    NONNEGATIVE_DICT = config.NONNEGATIVE
-    DEVICE = 'cuda:1'
+    EPOCHS = 200
+    DEVICE = 'cuda:0'
     print(f'\n{"="*50}')
     print(f'Running with seed: {seed}')
     print(f'{"="*50}\n')
@@ -57,17 +54,16 @@ def train_sae(seed):
     random.seed(seed)
     torch.cuda.manual_seed_all(seed)
 
-    wandb.run.name = f"thresh_{THRESHOLD}_{N}_{ATOM_L1}_mlpsize_{MLP_HIDDEN_SIZE}_nonneg_{NONNEGATIVE_DICT}"
-
+    wandb.run.name = f"thresh_{THRESHOLD}_{N}_{config.MODE_L1}"
 
 
     # Data parameters
-    DATA_DIR = '/mnt/data/codec/h5s/int_grad_top_1_False_resnet50_steps_10'
+    DATA_DIR = '/mnt/data/codec/h5s/int_grad_top_1_False_resnet50_steps_10/'
     DATA_PATH = os.path.join(DATA_DIR, 'data.h5')
     PROJECT_DIR = os.path.join(DATA_DIR, 'saes', project_name)
     if not os.path.exists(PROJECT_DIR):
         os.makedirs(PROJECT_DIR)
-    run_dir = os.path.join(PROJECT_DIR, f"hypersweep_mlpsize_{MLP_HIDDEN_SIZE}_nonneg_{NONNEGATIVE_DICT}_{THRESHOLD}_{N}_{ATOM_L1}")
+    run_dir = os.path.join(PROJECT_DIR, f"hypersweep_{config.THRESHOLD}_{config.N}_{config.MODE_L1}")
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)
 
@@ -86,6 +82,9 @@ def train_sae(seed):
 
         # Load data
         data, targets = bic.load_contribution_data(DATA_PATH, DATA_TYPE, LAYER_IDX, SPATIAL_OPERATION, norm=True)
+        MLP_HIDDEN_SIZE = None
+        if MLP_HIDDEN_SIZE is None: 
+            MLP_HIDDEN_SIZE=data.shape[-1] # Number of channels in layer
         dataset = TensorDataset(torch.from_numpy(data).float())
 
 
@@ -94,12 +93,12 @@ def train_sae(seed):
         # sae = bscope.SigThreshSAE(data.shape[-1],
         #         num_atoms=int(data.shape[-1]*N),
         #         threshold=THRESHOLD,
-        #         mlp_hidden_dim=MLP_HIDDEN_SIZE, nonnegative=NONNEGATIVE_DICT).to(DEVICE)
+        #         mlp_hidden_dim=MLP_HIDDEN_SIZE).to(DEVICE)
         
         sae = bscope.STSAE(data.shape[-1],
                 num_atoms=data.shape[-1]*N,
                 threshold=THRESHOLD,
-                mlp_hidden_dim=MLP_HIDDEN_SIZE, nonnegative=NONNEGATIVE_DICT).to(DEVICE)
+                mlp_hidden_dim=MLP_HIDDEN_SIZE).to(DEVICE)
 
         # Data loaders
         train_dataloader = torch.utils.data.DataLoader(dataset,
@@ -138,8 +137,8 @@ def train_sae(seed):
 
                 if CODE_L1 is not None:
                     loss += CODE_L1 * torch.mean(torch.abs(codes))
-                if ATOM_L1 is not None:
-                    loss += ATOM_L1 * torch.mean(torch.abs(sae.dictionary.get_dictionary()))
+                if MODE_L1 is not None:
+                    loss += MODE_L1 * torch.mean(torch.abs(sae.dictionary.get_dictionary()))
 
                 loss.backward()
                 loss_agg += loss.item()
@@ -153,6 +152,7 @@ def train_sae(seed):
 
             print(f'Epoch {epoch+1}/{EPOCHS}, Loss: {losses:.4f}, R2: {epoch_r2:.4f}, LR: {learning_rate:.6f}')
             
+
             wandb.log({
                 f'layer_{LAYER_IDX}_epoch': epoch + 1,
                 f'layer_{LAYER_IDX}_train_loss': epoch_loss,
@@ -163,7 +163,6 @@ def train_sae(seed):
             # scheduler.step()
 
             if epoch % 100 == 0:
-
                         model_path = os.path.join(run_dir, f'sae_layer_{LAYER_IDX}_epoch_{epoch+1}.pt')
                         torch.save(sae, model_path)
                         wandb.log({'checkpoint_path': model_path})
@@ -186,7 +185,7 @@ def train_sae(seed):
                         
 
 
-
+                # Aggregate results
                 codes_agg = np.concatenate(codes_agg, axis=0) 
                 eval_data_agg = np.concatenate(eval_data_agg, axis=0)
                 eval_reconstructed_agg = np.concatenate(eval_reconstructed_agg, axis=0)
@@ -203,7 +202,7 @@ def train_sae(seed):
                 print(f'Alive Codes: {dictionary.shape[0]}')
 
 
-
+                # Log evaluation metrics
                 wandb.log({
                     f'layer_{LAYER_IDX}_eval_r2': r2,
                     f'layer_{LAYER_IDX}_alive_modes': np.sum(firings>0),
@@ -235,7 +234,7 @@ def train_sae(seed):
                     
 
 
-
+            # Aggregate results
             codes_agg = np.concatenate(codes_agg, axis=0) 
             eval_data_agg = np.concatenate(eval_data_agg, axis=0)
             eval_reconstructed_agg = np.concatenate(eval_reconstructed_agg, axis=0)
@@ -272,16 +271,16 @@ def train_sae(seed):
         wandb.log({'model_path': model_path})
     wandb.finish()
 
-# # Initialize and run sweep
+
 num_configs = 1
 for param in sweep_config['parameters'].values():
     num_configs *= len(param['values'])
 print(num_configs)
 if __name__ == "__main__":
-    SEEDS = [483]
+    SEEDS = [1001, 2002, 483]
     
     for seed in SEEDS:
 
-        project_name = f'sweep_int_grad_top_1_False_resnet50_steps_10_{seed}_mlpsize_nonneg_STSAE'
+        project_name = f'sweep_int_grad_top_1_False_resnet50_steps_10_{seed}_positive_STSAE'
         sweep_id = wandb.sweep(sweep_config, project=project_name)
         wandb.agent(sweep_id, lambda s=seed: train_sae(seed=s), count=num_configs)

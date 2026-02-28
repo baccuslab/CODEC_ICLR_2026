@@ -23,7 +23,7 @@ SEED = 1001
 BATCH_SIZE = 128
 N = 5  
 THRESHOLD = .9
-ATOM_L1 = 1e-4
+MODE_L1 = 1e-4
 EPOCHS = 200
 LEARNING_RATE = 5e-5
 project_name = 'run_time_metrics'
@@ -36,7 +36,7 @@ overall_start_time = time.time()
 wandb.init(project=project_name, config={
     'N': N,
     'THRESHOLD': THRESHOLD,
-    'ATOM_L1': ATOM_L1,
+    'MODE_L1': MODE_L1,
     'seed': SEED,
     'batch_size': BATCH_SIZE,
     'learning_rate': LEARNING_RATE,
@@ -50,7 +50,7 @@ DEVICE = 'cuda:2'
 
 print(f'\n{"="*50}')
 print(f'Running with seed: {SEED}')
-print(f'N: {N}, THRESHOLD: {THRESHOLD}, ATOM_L1: {ATOM_L1}')
+print(f'N: {N}, THRESHOLD: {THRESHOLD}, ATOM_L1: {MODE_L1}')
 print(f'{"="*50}\n')
 
 # Set seeds

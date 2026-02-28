@@ -42,7 +42,7 @@ truth = test_data.y
 pearsons = tdr.utils.pearsonr(preds, truth)
 
 # =============================================================================
-# LOAD CODES FOR BOTH LAYERS
+# LOAD LOADINGS FOR BOTH LAYERS
 # =============================================================================
 singletarget = 'surprisal'
 if 'whitenoise' in identifier:
@@ -57,25 +57,25 @@ layer_name1 = 'conv1'
 sae_results_path = f'/home/zalaoui/retinal_codec/{identifier}_codec/single_target_saes/{singletarget}_sae_results_{saveflag}.h5'
 
 with h5.File(sae_results_path, 'r') as f:
-    codes_layer0 = f[layer_name0]['codes'][:]
-    print(f"Loaded codes for {layer_name0} with shape {codes_layer0.shape}")
-    codes_layer1 = f[layer_name1]['codes'][:]
-    print(f"Loaded codes for {layer_name1} with shape {codes_layer1.shape}")
+    loadings_layer0 = f[layer_name0]['codes'][:]
+    print(f"Loaded loadings for {layer_name0} with shape {loadings_layer0.shape}")
+    loadings_layer1 = f[layer_name1]['codes'][:]
+    print(f"Loaded loadings for {layer_name1} with shape {loadings_layer1.shape}")
 
 
 
 # =============================================================================
 # ANALYSIS FUNCTION
 # =============================================================================
-def analyze_layer(codes, layer_name, preds, test_data):
-    _, n_atoms = codes.shape
+def analyze_layer(loading, layer_name, preds, test_data):
+    _, n_atoms = loading.shape
     n_cells = len(test_data.cells)
     mode_response_matrix = np.full((n_cells, n_atoms), np.nan)
     
     for cell_idx, cell_id in enumerate(test_data.cells):
         pred_responses_cell = preds[:, cell_idx]
         for atom_idx in range(n_atoms):
-            atom_loading = codes[:, atom_idx]
+            atom_loading = loading[:, atom_idx]
             correlation = np.corrcoef(atom_loading, pred_responses_cell)[0, 1]
             mode_response_matrix[cell_idx, atom_idx] = correlation
     
@@ -92,8 +92,8 @@ def analyze_layer(codes, layer_name, preds, test_data):
 # =============================================================================
 # ANALYZE BOTH LAYERS
 # =============================================================================
-results_conv0 = analyze_layer(codes_layer0, 'conv0', preds, test_data)
-results_conv1 = analyze_layer(codes_layer1, 'conv1', preds, test_data)
+results_conv0 = analyze_layer(loadings_layer0, 'conv0', preds, test_data)
+results_conv1 = analyze_layer(loadings_layer1, 'conv1', preds, test_data)
 
 # =============================================================================
 # K-MEANS CLUSTERING AND PLOTTING

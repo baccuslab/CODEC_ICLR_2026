@@ -77,9 +77,8 @@ def calc_auc_diff(results, source='aleph'):
     
     return auc_diffs
 
-# ============================================================================
-# CREATE COMBINED FIGURE WITH ALL PLOTS
-# ============================================================================
+
+
 fig, axes = plt.subplots(2, 3, figsize=(22, 12))
 axes = axes.flatten()
 
@@ -118,7 +117,7 @@ ax.set_ylim(-1.1, 1.4)
 # ============================================================================
 # PLOT 2: Threshold
 # ============================================================================
-# PLOT 2: Threshold
+
 ax = axes[1]
 bscope.style_plot(ax)
 
@@ -128,7 +127,7 @@ threshold_configs = {
     'Threshold=0.9': 'hypersweep_0.9_5_0.0001',
 }
 
-# Just loop through all three normally
+
 for i, (label, config_name) in enumerate(threshold_configs.items()):
     if config_name not in all_results:
         continue
@@ -148,7 +147,7 @@ ax.set_title('Threshold')
 ax.legend(frameon=False, fontsize=8)
 ax.set_ylim(-1.1, 1.4)
 # ============================================================================
-# PLOT 3: Atom L1
+# PLOT 3: Mode L1
 # ============================================================================
 ax = axes[2]
 bscope.style_plot(ax)
@@ -182,12 +181,7 @@ ax.set_ylim(-1.1, 1.4)
 # ============================================================================
 # PLOT 4: Seed
 # ============================================================================
-ax = axes[3]
-bscope.style_plot(ax)
 
-# ============================================================================
-# PLOT 4: Seed
-# ============================================================================
 ax = axes[3]
 bscope.style_plot(ax)
 

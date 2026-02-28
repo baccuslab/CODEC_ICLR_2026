@@ -20,7 +20,6 @@ mode_types = ['sum']
 
 
 for mode in mode_types:
-    print(f"Processing mode: {mode}")
     mode_type = mode
 
     # Paths - all three seeds

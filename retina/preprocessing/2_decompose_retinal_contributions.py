@@ -31,7 +31,7 @@ THRESHOLD = 0.9
 LEARNING_RATE = 1e-5
 EPOCHS = 800
 CODE_L1 = None
-ATOM_L1 = 1e-4
+MODE_L1 = 1e-4
 
 
 
@@ -178,8 +178,8 @@ for layer_name in layer_names:
             # Sparsity regularization
             if CODE_L1 is not None:
                 loss += CODE_L1 * torch.mean(torch.abs(codes))
-            if ATOM_L1 is not None:
-                loss += ATOM_L1 * torch.mean(torch.abs(sae.dictionary.get_dictionary()))
+            if MODE_L1 is not None:
+                loss += MODE_L1 * torch.mean(torch.abs(sae.dictionary.get_dictionary()))
             loss.backward()
             loss_agg += loss.item()
             optimizer.step()

@@ -137,12 +137,12 @@ if surprisal:
     sigma = np.cov(all_outputs.T) 
     sigma_inv = np.linalg.inv(sigma)
 
-mu_tensor = torch.from_numpy(mu).to(device).float()  # Add this
-sigma_inv_tensor = torch.from_numpy(sigma_inv).to(device).float()  # Add this
+mu_tensor = torch.from_numpy(mu).to(device).float() 
+sigma_inv_tensor = torch.from_numpy(sigma_inv).to(device).float() 
 print(f"Surprisal mu shape: {mu.shape}, sigma_inv shape: {sigma_inv.shape}, sigma: {sigma.shape}")
 scope = bscope.Scope(model, layers)
 scope.use_int_grad(steps=20)
-scope.wrt_surprisal(softmax=False)  # Set target to sum of all firing rates
+scope.wrt_surprisal(softmax=False)  
 scope.set_surprisal_stats(mu, sigma_inv)
 scope.log_start(reduction=['ei_split', 'spatial_sum'])
 
@@ -161,12 +161,12 @@ for i, batch_data in enumerate(tqdm.tqdm(test_loader, desc="Processing all cells
     
     centered = output - mu_tensor
     surprisal = 0.5 * torch.sum((centered @ sigma_inv_tensor) * centered, dim=1)
-    all_surprisal_data.append(surprisal.detach().cpu().numpy())  # Add this
+    all_surprisal_data.append(surprisal.detach().cpu().numpy())  
 
     scope(stimulus)
     
     # Store model predictions forv cells
-    all_responses.append(output.detach().cpu().numpy())  # Keep all cells
+    all_responses.append(output.detach().cpu().numpy()) 
     actual_responses.append(response.numpy())
 
 scope.log_stop()

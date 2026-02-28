@@ -13,7 +13,7 @@ from collections import Counter, defaultdict
 
 def select_timepoints(examples, max_examples):
     """
-    Select  diverse examples to avoid clustering
+    Select diverse examples to avoid clustering
     
     Args:
         examples: list of example dicts sorted by activation strength
@@ -340,7 +340,7 @@ with h5.File(sae_results_path, 'r') as f:
     r2_score = f[layer_name].attrs['r2_score']
     n_features = f[layer_name].attrs['n_features']
 
-n_timepoints, n_atoms = loadings.shape
+n_timepoints, n_modes = loadings.shape
 
 
 print(f"Loadings shape: {loadings.shape}, Dictionary shape: {dictionary.shape}")

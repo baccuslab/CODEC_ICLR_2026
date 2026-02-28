@@ -187,50 +187,48 @@ def compute_and_save_irfs(identifier, selected_cells=None, ig_steps=2, output_di
     print(f"\nCompleted! Results saved to: {output_file}")
     return output_file
 
-def load_irfs(file_path, cell_id):
+def load_irfs(file_path, cell_id, load_ig_irf=False):
     """
     Load IRF data for a specific cell from the saved HDF5 file.
-    
+
     Args:
         file_path: Path to the HDF5 file
         cell_id: ID of the cell to load
-        
+        load_ig_irf: if True, also load ig_irf_mean and ig_irf_all (default True);
+                     set to False to load only regular IRF data
+
     Returns:
         dict with 'regular_irf_mean', 'regular_irf_all', and optionally 'ig_irf_mean', 'ig_irf_all'
     """
     with h5.File(file_path, 'r') as f:
         cell_grp = f[f'cell_{cell_id}']
-        
+
         result = {
             'regular_irf_mean': cell_grp['regular_irf_mean'][:],
             'regular_irf_all': cell_grp['regular_irf_all'][:],
             'cell_id': cell_grp.attrs['cell_id'],
             'cell_index': cell_grp.attrs['cell_index']
         }
-        
-        # Only load IG-IRF if it exists
-        if 'ig_irf_mean' in cell_grp:
+
+        # Only load IG-IRF if requested and it exists
+        if load_ig_irf and 'ig_irf_mean' in cell_grp:
             result['ig_irf_mean'] = cell_grp['ig_irf_mean'][:]
             result['ig_irf_all'] = cell_grp['ig_irf_all'][:]
-        
-        return result
-def list_available_cells(file_path):
-    """List all cells available in the HDF5 file"""
-    with h5.File(file_path, 'r') as f:
-        cells = f['metadata']['cells_processed'][:]
-        return cells.tolist()
 
-if __name__ == "__main__":
-    identifier = '15-11-21b_naturalscene'
-    selected_cells = None
-    ig_steps = 5
-    output_dir = f'/home/zalaoui/retina_codec/{identifier}/irf_results'
-    
-    # Run computation
-    output_file = compute_and_save_irfs(
-        identifier=identifier,
-        selected_cells=selected_cells,
-        ig_steps=ig_steps,
-        output_dir=output_dir, compute_ig=False
-    )
+        return result
+        
+
+
+identifier = '15-11-21b_naturalscene'
+selected_cells = None
+ig_steps = 5
+output_dir = f'/home/zalaoui/retina_codec/{identifier}/irf_results'
+
+# Run computation
+output_file = compute_and_save_irfs(
+    identifier=identifier,
+    selected_cells=selected_cells,
+    ig_steps=ig_steps,
+    output_dir=output_dir, compute_ig=False
+)
     

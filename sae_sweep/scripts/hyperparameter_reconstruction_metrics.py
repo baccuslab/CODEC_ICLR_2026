@@ -144,14 +144,14 @@ def plot_metrics_figure(df):
     return fig
 
 
-if __name__ == '__main__':
-    SWEEP_BASES = {
-        '1001': '/mnt/data/codec/h5s/int_grad_top_1_False_resnet50_steps_10/saes/sweep_int_grad_top_1_False_resnet50_steps_10_1001_positive_STSAE',
-        '2002': '/mnt/data/codec/h5s/int_grad_top_1_False_resnet50_steps_10/saes/sweep_int_grad_top_1_False_resnet50_steps_10_2002_positive_STSAE',
-        '483': '/mnt/data/codec/h5s/int_grad_top_1_False_resnet50_steps_10/saes/sweep_int_grad_top_1_False_resnet50_steps_10_483_positive_STSAE',
-        'mlp_size': '/mnt/data/codec/h5s/int_grad_top_1_False_resnet50_steps_10/saes/sweep_int_grad_top_1_False_resnet50_steps_10_483_mlpsize_nonneg_STSAE'
-    }
-    OUTPUT_DIR = '/home/zalaoui/codec_zaki/results'
-    
-    df = run_metrics_extraction(SWEEP_BASES)
-    plot_metrics_figure(df)
+
+SWEEP_BASES = {
+    '1001': '/mnt/data/codec/h5s/int_grad_top_1_False_resnet50_steps_10/saes/sweep_int_grad_top_1_False_resnet50_steps_10_1001_positive_STSAE',
+    '2002': '/mnt/data/codec/h5s/int_grad_top_1_False_resnet50_steps_10/saes/sweep_int_grad_top_1_False_resnet50_steps_10_2002_positive_STSAE',
+    '483': '/mnt/data/codec/h5s/int_grad_top_1_False_resnet50_steps_10/saes/sweep_int_grad_top_1_False_resnet50_steps_10_483_positive_STSAE',
+    'mlp_size': '/mnt/data/codec/h5s/int_grad_top_1_False_resnet50_steps_10/saes/sweep_int_grad_top_1_False_resnet50_steps_10_483_mlpsize_nonneg_STSAE'
+}
+OUTPUT_DIR = '/home/zalaoui/codec_zaki/results'
+
+df = run_metrics_extraction(SWEEP_BASES)
+plot_metrics_figure(df)

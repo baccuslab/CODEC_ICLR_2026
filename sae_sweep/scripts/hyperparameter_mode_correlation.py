@@ -12,9 +12,6 @@ import bscope
 F = Fycus('hyperparam', base_path='/home/zalaoui/higanbana/STSAE')
 
 
-
-
-
 def compare_mode_summaries(m0_path, m1_path, corr_threshold=0.2, mode='sum'):
 
     with h5.File(m0_path, 'r') as f0, h5.File(m1_path, 'r') as f1:

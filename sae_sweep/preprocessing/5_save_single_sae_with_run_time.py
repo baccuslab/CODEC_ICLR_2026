@@ -59,7 +59,7 @@ np.random.seed(SEED)
 random.seed(SEED)
 torch.cuda.manual_seed_all(SEED)
 
-wandb.run.name = f"single_run_thresh_{THRESHOLD}_N_{N}_ATOM_{ATOM_L1}"
+wandb.run.name = f"single_run_thresh_{THRESHOLD}_N_{N}_ATOM_{MODE_L1}"
 
 # Data parameters
 DATA_DIR = '/mnt/data/codec/h5s/int_grad_top_1_False_resnet50_steps_10/'
@@ -68,7 +68,7 @@ PROJECT_DIR = os.path.join(DATA_DIR, 'saes')
 if not os.path.exists(PROJECT_DIR):
     os.makedirs(PROJECT_DIR)
 
-run_dir = os.path.join(PROJECT_DIR, f"{THRESHOLD}_{N}_{ATOM_L1}_layer3")
+run_dir = os.path.join(PROJECT_DIR, f"{THRESHOLD}_{N}_{MODE_L1}_layer3")
 if not os.path.exists(run_dir):
     os.makedirs(run_dir)
 
@@ -161,8 +161,8 @@ for LAYER_IDX in LAYERS_TO_TRAIN:
             loss = loss_fn(reconstructed, train_batch)
             if CODE_L1 is not None:
                 loss += CODE_L1 * torch.mean(torch.abs(codes))
-            if ATOM_L1 is not None:
-                loss += ATOM_L1 * torch.mean(torch.abs(sae.dictionary.get_dictionary()))
+            if MODE_L1 is not None:
+                loss += MODE_L1 * torch.mean(torch.abs(sae.dictionary.get_dictionary()))
             
             forward_time = time.time() - forward_start
             batch_forward_times.append(forward_time)

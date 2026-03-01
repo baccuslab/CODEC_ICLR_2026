@@ -3,9 +3,9 @@ import bscope
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py as h5
-from skkm import Figaro
+from fycus import Fycus
 
-F = Figaro(fig_dir='hyperparam', base_path='/home/zalaoui/higanbana/STSAE')
+F = Fycus(fig_dir='hyperparam', base_path='/home/zalaoui/higanbana/STSAE')
 
 # ============================================================================
 # CONFIGURATION

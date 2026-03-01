@@ -50,17 +50,18 @@ for ax, (blue_data, blue_label) in zip(axes, [
     ax.set_xlim(-1, 16)
     ax.set_ylim(0, 1)
     ax.set_xticks([0, 4, 8, 12, 15])
-    ax.set_xticklabels(['0', '4', '8', '12', '15'])
-    ax.set_xlabel('Layer')
-    ax.set_ylabel('Sparsity (Hoyer)')
+    ax.set_xticklabels(['0', '4', '8', '12', '15'], fontsize=14)
+    ax.tick_params(axis='both', labelsize=20)
+    ax.set_xlabel('Layer', fontsize=20)
+    ax.set_ylabel('Sparsity (Hoyer)', fontsize=20)
     ax.set_title('Sparsity per Layer')
     legend_handles = [
         Patch(facecolor='white', edgecolor='k', label='Contrastive Contributions'),
         Patch(facecolor='white', edgecolor='b', label=blue_label),
     ]
-    ax.legend(handles=legend_handles)
+    ax.legend(handles=legend_handles, fontsize=10)
     bscope.style_plot(ax)
 
 plt.tight_layout()
 F.XX(1.0,1.5) 
-F.save('sparsity_comparision_combined_boxplot')
+F.save('sparsity_comparision_combined_boxplot_ticks')

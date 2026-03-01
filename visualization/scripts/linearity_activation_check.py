@@ -20,12 +20,12 @@ import fycus
 
 filter_size = 2
 contrast = 6
-LAYER = 7
+LAYER = 12
 # CLASS = 486 #cello
 CLASS = 889 #violin
 # CLASS = 642 # marimba
 device = 'cuda:0'
-NCHAN = 5
+NCHAN = 1
 CHANNELS = NCHAN
 use_norm = False
 
@@ -52,11 +52,7 @@ DEVICE = next(model.parameters()).device
 # 4. MAIN SCRIPT
 # =============================================================================
 
-# img_idxs = [22801, 22819, 44475, 44485, 44498, 24314, 24316, 24323, 32117, 32128, 32148]
-# img_idxs += [22801, 44453, 44488]#  22819, 44475, 44485, 44498, 24314, 24316, 24323, 32117, 32128, 32148]
-# img_idxs += [32103, 24348, 44454, 44493, 44453, 44468, 32109, 32128]   #, 22801, 22819, 22818, 44453, 44488, 24314, 24319, 32109, 32128]#  22819, 44475, 44485, 44498, 24314, 24316, 24323, 32117, 32128, 32148]
-
-img_idx = 32148
+img_idx = 18202 
 
 WHICH_MODE = 0
 
@@ -65,18 +61,9 @@ mode_summary_path = '/data/h5s/int_grad_top_1_False_resnet50_steps_10/saes/aleph
 mode_summary = bic.ModeSummary(mode_summary_path)
 mode_idx, atom, mode_loadings, corr = bic.get_top_mode(mode_summary, LAYER, CLASS, WHICH_MODE)
 
-
-if CHANNELS == 'all':
-    chan_idxs = np.arange(atom.shape[0])
-    print(f'Using all channels: {len(chan_idxs)}')
-
 # Normalize channel weights by the max atom value among the top channels
 chan_idxs, vals = bic.top_n(atom, CHANNELS)
-max_val = np.max(np.abs(vals))
-channel_weight_map = {cidx: v / max_val for cidx, v in zip(chan_idxs, vals)}
-
 top_channels = list(np.sort(chan_idxs))
-
 
 # 4b. Setup model
 model.zero_grad()
@@ -98,15 +85,12 @@ activations = inspector.activations[0]
 
 Jy = torch.autograd.grad(Y[:,SPECIFIC_CLASS_IDX].sum(), activations, retain_graph=True)[0].cpu().detach().numpy()
 
-
+# From dataloader preprocessing, the images are normalized by these mean and std values. To visualize the image properly, we need to unnormalize it using these values.
 _mean=[0.485, 0.456, 0.406]
 _std=[0.229, 0.224, 0.225]
 
 torch_mean = torch.tensor(_mean).view(1,3,1,1).to(DEVICE)
 torch_std = torch.tensor(_std).view(1,3,1,1).to(DEVICE)
-
-
-
 
 mode_activations = activations[:, top_channels, :, :]
 
@@ -140,16 +124,21 @@ C = np.zeros((NCHAN, h, w), dtype='float32')
 
 first = True
 
+z = []
+z_approx = []
 for _k in tqdm.tqdm(range(NCHAN)):
     # Weight for this channel: atom value normalized by max atom value
-    channel_weight = channel_weight_map[top_channels[_k]]
-
+    channel_weight = 1.0
     for _h in range(h):
         for _w in range(w):
             _Jz = torch.autograd.grad(mode_activations[0,_k,_h,_w], X, retain_graph=True)[0].cpu().detach().numpy()
             _Jy = mode_Jy[:,_k,_h,_w]
+            z.append(mode_activations[0,_k,_h,_w].item())
 
             J = np.einsum('abcd,a->abcd', _Jz, _Jy)
+
+            linear_activation = np.einsum('abcd,abcd->a', _Jz, X.cpu().detach().numpy())
+            z_approx.append(linear_activation)
 
             J_norm = np.linalg.norm(J) + 1e-16
             J_norm = J / J_norm
@@ -192,6 +181,14 @@ for _k in tqdm.tqdm(range(NCHAN)):
             Jz[_k, _h, _w, :, :, :] = _Jz * channel_weight
             Jy_arr[_k, _h, _w] = _Jy * channel_weight
             JyJz[_k, _h, _w, :, :, :] = J *channel_weight
+
+z = np.array(z)
+z_approx = np.array(z_approx)
+plt.scatter(z, z_approx)
+plt.xlabel('Actual activation value')
+plt.ylabel('Linear approximation of activation value')
+plt.title('Actual vs Linear Approximation of Activation Value')
+plt.show()
 
 
 JyJz = JyJz.sum(axis=(0,1,2)).transpose(1,2,0)

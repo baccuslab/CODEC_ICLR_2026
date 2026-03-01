@@ -18,20 +18,24 @@ import fycus
 # =============================================================================
 
 
-filter_size = 2
-contrast = 6
+filter_size = 4
+contrast = 7
 LAYER = 7
 # CLASS = 486 #cello
 CLASS = 889 #violin
 # CLASS = 642 # marimba
 device = 'cuda:0'
-NCHAN = 5
+NCHAN = 1
 CHANNELS = NCHAN
-use_norm = False
+use_rf_norm = False
+use_channel_weighting_norm = False
 
-F = fycus.Fycus('normed_channels_{}_filt_{}_contrast_{}_layer_{}_class_{}'.format(NCHAN, filter_size, contrast, LAYER, CLASS))
+
+F = fycus.Fycus('FINAL')
 F.XX(2,2)
 
+
+use_norm = use_rf_norm
 
 def sign_split(M):
     positive = np.copy(M)
@@ -52,21 +56,18 @@ DEVICE = next(model.parameters()).device
 # 4. MAIN SCRIPT
 # =============================================================================
 
-img_idxs = [22801, 22819, 44475, 44485, 44498, 24314, 24316, 24323, 32117, 32128, 32148]
-img_idxs += [22801, 44453, 44488]#  22819, 44475, 44485, 44498, 24314, 24316, 24323, 32117, 32128, 32148]
-img_idxs += [32103, 24348, 44454, 44493, 44453, 44468, 32109, 32128]   #, 22801, 22819, 22818, 44453, 44488, 24314, 24319, 32109, 32128]#  22819, 44475, 44485, 44498, 24314, 24316, 24323, 32117, 32128, 32148]
 
-img_idxs = list(set(img_idxs))
+img_idxs = [22801 ,24323, 24348, 32128, 24314,  32148, 44475, 44485, 24314, 44468]
 
+# modes = [1,3,9,10]
+modes = np.arange(10)
 classes_represented = set(img_idx // 50 for img_idx in img_idxs)
 print(f'Classes represented in the selected images: {classes_represented}')
 # img_idxs = [32109, 32128]   #, 22801, 22819, 22818, 44453, 44488, 24314, 24319, 32109, 32128]#  22819, 44475, 44485, 44498, 24314, 24316, 24323, 32117, 32128, 32148]
 
 for count, img_idx in enumerate(img_idxs):
-    for WHICH_MODE in [0,1, 2, 3, 4, 5,6,7,8]: #, 5, 6, 7, -1, -2, -3, -4]:
-        # mode_summary_path = '/data/h5s/int_grad_top_1_False_resnet50_steps_10/saes/aleph_contributions_positive/mode_summary.h5'
+    for WHICH_MODE in modes:
         mode_summary_path = '/data/h5s/int_grad_top_1_False_resnet50_steps_10/saes/aleph_contributions_positive/mode_summary.h5'
-        # act_normgrad_top_1_False_resnet50/saes/aleph_contributions_positive/mode_summary.h5'
 
         mode_summary = bic.ModeSummary(mode_summary_path)
         mode_idx, atom, mode_loadings, corr = bic.get_top_mode(mode_summary, LAYER, CLASS, WHICH_MODE)
@@ -199,6 +200,11 @@ for count, img_idx in enumerate(img_idxs):
                     _C = np.einsum('abcd,abcd->a', J, X.cpu().detach().numpy())
                     C[_k, _h, _w] = _C
 
+                    if use_channel_weighting_norm:
+                        pass
+                    else:
+                        channel_weight = 1.0
+
                     if first:
                         PossumJyJz = np.zeros_like(J)
                         PossumXJyJz = np.zeros_like(X.cpu().detach().numpy())
@@ -257,49 +263,26 @@ for count, img_idx in enumerate(img_idxs):
 
         normalize = lambda x: (x) / (np.max(np.abs(x)))
 
-        # if use_norm:
-        #     JyJz = JyJzNorm
-        #     PosJyJz = PosJyJzNorm
-        #     NegJyJz = NegJyJzNorm
-        #     XJyJz = XJyJzNorm
-        #     PosXJyJz = PosXJyJzNorm
-        #     NegXJyJz = NegXJyJzNorm
-
-        fig, ax = plt.subplots(1, 3, figsize=(10,5))
-
-        # XJyJz = XJyJz * _std[..., np.newaxis, np.newaxis] + _mean[..., np.newaxis, np.newaxis]
-        # This doesn't work, add axes to _std and _mean to match the shape of XJyJz
-
-        # std = np.array(_std)[np.newaxis, np.newaxis, :]
-        # mean = np.array(_mean)[np.newaxis, np.newaxis, :]
-
         mask, _, _ = sign_split(XJyJz)
-        if filter_size > 1:
-            mask = [median_filter(mask[:,:,c], size=filter_size) for c in range(3)]
-            mask = np.stack(mask, axis=2)
-        mask = mask.mean(axis=2)
-        # mask = median_filter(mask, size=filter_size)[:,:,np.newaxis]
+        mask = [median_filter(mask[:,:,c], size=filter_size) for c in range(3)]
+        mask = np.stack(mask, axis=2)
+        mask = mask.mean(axis=2)[..., np.newaxis]
 
-        # [:,:,np.newaxis]
-
-
-
-        # mask = mask.max(axis=2)[:,:,np.newaxis]
-
-        mask -= np.min(mask)
+        mask = mask - np.min(mask)
         mask = mask / (np.max(mask))
-
-        mask *= contrast
+        mask = mask * contrast
 
         mask = np.clip(mask, 0, 1)
 
-        masked_image = X_vis * mask[:,:,np.newaxis]
+        masked_image = X_vis * mask
 
         fig, ax = plt.subplots(1, 3, figsize=(10,5))
         ax[0].imshow(X_vis, interpolation='none')
-        ax[0].set_title('Original Image')
-        ax[1].imshow(masked_image, interpolation='none')
-        ax[1].set_title(f'Masked Image (Mode {WHICH_MODE})')
-        ax[2].imshow(mask, cmap='gray', interpolation='none', clim=(0,1))
-        F.XX(1,2)
-        F.save(f'{img_idx}_mode_{WHICH_MODE}', dpi=150)
+        ax[1].imshow(mask, cmap='gray', interpolation='none', clim=(0,1))
+        ax[2].imshow(masked_image, interpolation='none')
+
+        for axes in ax:
+            axes.axis('off')
+
+        F.XX(0.7,1.4)
+        F.save('mode_{}_class_{}_img_idx_{}'.format(WHICH_MODE, CLASS, img_idx), dpi=150)

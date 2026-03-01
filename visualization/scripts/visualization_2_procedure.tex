@@ -1,0 +1,191 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage[margin=1in]{geometry}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+
+\title{Visualizing Stimuli Acting Through Contribution Modes}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Overview}
+
+We describe a method for visualizing which regions of an input image are used by a specific contribution mode to drive network output.
+Given a trained network, a contribution mode identified by CODEC, and an input image, the method isolates the gradient pathway from output to input that passes exclusively through the mode's top channels at a chosen intermediate layer.
+The result is a per-pixel map in input space showing where the mode's channels jointly attend to the stimulus, weighted by both their sensitivity to the input (receptive field) and their influence on the output (projective field).
+
+\section{Notation}
+
+Let $f$ denote a feedforward network (ResNet-50) mapping input $X \in \mathbb{R}^{3 \times 224 \times 224}$ to class probabilities $Y = \mathrm{softmax}(f(X)) \in \mathbb{R}^{1000}$.
+Let $\mathbf{h} \in \mathbb{R}^{d \times H \times W}$ denote the activation tensor at an intermediate layer $\ell$, where $d$ is the number of channels and $H \times W$ is the spatial extent.
+We write $h_{c,p}$ for the activation of channel $c$ at spatial position $p = (i, j)$, with $i \in \{1,\ldots,H\}$ and $j \in \{1,\ldots,W\}$.
+
+A contribution mode $\mathbf{m}$ is a non-negative vector over channels obtained from a sparse autoencoder decomposition of the channel contribution matrix at layer $\ell$.
+We denote the set of $N$ channels with largest magnitude in $\mathbf{m}$ as $\mathcal{S} = \{c_1, \ldots, c_N\} \subset \{1, \ldots, d\}$.
+
+\section{Method}
+
+\subsection{Step 1: Retrieve the contribution mode}
+
+Given a target class $y$ and a mode rank $r$ (ordered by correlation with the class indicator), load the pre-computed SAE dictionary atom $\mathbf{m} \in \mathbb{R}^d$ from the mode summary.
+Select the top-$N$ channels by magnitude:
+\begin{equation}
+    \mathcal{S} = \operatorname{top\text{-}N}(\mathbf{m})
+\end{equation}
+
+\subsection{Step 2: Forward pass}
+
+Pass input image $X$ through the network with gradient tracking enabled.
+Capture the activation tensor $\mathbf{h}$ at layer $\ell$ via a forward hook, and compute the softmax class probabilities $Y$.
+
+\subsection{Step 3: Compute the projective field}
+
+Compute the gradient of the target class probability with respect to the full activation tensor:
+\begin{equation}
+    J_{y,c,p} = \frac{\partial Y_y}{\partial h_{c,p}} \in \mathbb{R}
+\end{equation}
+for all channels $c$ and spatial positions $p$.
+This is the \emph{projective field}: it measures how a small change in each hidden unit's activation would affect the network's output for class $y$.
+Restrict to the mode's channels:
+\begin{equation}
+    \tilde{J}_{y,k,p} = J_{y,c_k,p}, \quad c_k \in \mathcal{S}
+\end{equation}
+
+\subsection{Step 4: Compute per-unit receptive fields}
+
+For each mode channel $k \in \{1,\ldots,N\}$ and spatial position $p = (i,j)$, compute the gradient of that unit's activation with respect to the input:
+\begin{equation}
+    \frac{\partial h_{c_k, p}}{\partial X} \in \mathbb{R}^{3 \times 224 \times 224}
+\end{equation}
+This is the \emph{instantaneous receptive field} (IRF) of unit $(c_k, p)$: it describes, for the current input $X$, how each input pixel influences that unit.
+We denote this $R_{k,p} = \frac{\partial h_{c_k,p}}{\partial X}$.
+
+\subsection{Step 5: Form the combined Jacobian}
+
+For each unit $(k, p)$, multiply the receptive field by the projective field scalar to obtain the combined Jacobian:
+\begin{equation}
+    J_{k,p} = \tilde{J}_{y,k,p} \cdot R_{k,p} \in \mathbb{R}^{3 \times 224 \times 224}
+    \label{eq:combined}
+\end{equation}
+Each element of $J_{k,p}$ gives the end-to-end sensitivity $\frac{\partial Y_y}{\partial X}$ routed through the single hidden unit $(c_k, p)$.
+This factorization uses the chain rule: the effect of input pixel $x_i$ on the output, mediated by unit $(c_k, p)$, is the product of how much $x_i$ drives that unit (receptive field) and how much that unit drives the output (projective field).
+
+\subsection{Step 6: Compute per-unit contribution scalars}
+
+For each unit $(k,p)$, compute the scalar contribution by contracting the combined Jacobian with the input:
+\begin{equation}
+    C_{k,p} = \sum_{c,\, i',\, j'} J_{k,p}^{(c,i',j')} \cdot X^{(c,i',j')}
+    \label{eq:contribution}
+\end{equation}
+This scalar quantifies the total contribution of unit $(k,p)$ to the class output $Y_y$: it is the inner product of the unit's end-to-end sensitivity map with the stimulus itself.
+
+\subsection{Step 7: Sign-separated accumulation}
+
+Accumulate the combined Jacobians across all units, split by the sign of each unit's contribution scalar:
+\begin{align}
+    G^{+} &= \sum_{\substack{k,\, p \;:\; C_{k,p} > 0}} J_{k,p} \label{eq:pos} \\[4pt]
+    G^{-} &= \sum_{\substack{k,\, p \;:\; C_{k,p} \leq 0}} J_{k,p} \label{eq:neg}
+\end{align}
+The total aggregated sensitivity map is:
+\begin{equation}
+    G = \sum_{k=1}^{N} \sum_{p} J_{k,p} = G^{+} + G^{-} \in \mathbb{R}^{3 \times 224 \times 224}
+\end{equation}
+$G$ is a pixel-resolved map that captures the aggregate sensitivity of the output $Y_y$ to each input pixel, restricted to pathways through the mode's channels.
+The sign-separated maps $G^+$ and $G^-$ distinguish units that excite versus inhibit the class output, which may highlight different image structures.
+
+\subsection{Step 8: Input-weighted contribution map}
+
+Weight the aggregated sensitivity by the input to obtain the contribution map:
+\begin{equation}
+    \mathcal{M} = G \odot X \in \mathbb{R}^{3 \times 224 \times 224}
+    \label{eq:contrib_map}
+\end{equation}
+where $\odot$ is the Hadamard (element-wise) product and $X$ is the normalized input image.
+While $G$ captures where the network is \emph{sensitive} through the mode, $\mathcal{M}$ captures where there is both sensitivity \emph{and} stimulus energy---i.e., where the input is actually driving the mode's contribution to the output.
+
+\subsection{Step 9: Mask construction and visualization}
+
+Convert $\mathcal{M}$ into a scalar spatial mask for overlaying on the original image:
+
+\begin{enumerate}
+    \item \textbf{Absolute value.} Take $|\mathcal{M}|$ element-wise, collapsing sign information to retain only magnitude.
+
+    \item \textbf{Spatial smoothing.} Apply a 2D median filter independently to each color channel with kernel size $s$:
+    \begin{equation}
+        \hat{\mathcal{M}}_c = \mathrm{median\_filter}_s\!\bigl(|\mathcal{M}_c|\bigr), \quad c \in \{R, G, B\}
+    \end{equation}
+    This suppresses isolated high-magnitude pixels while preserving edge structure.
+
+    \item \textbf{Channel reduction.} Average across color channels to produce a single spatial map:
+    \begin{equation}
+        M = \frac{1}{3} \sum_c \hat{\mathcal{M}}_c \in \mathbb{R}^{224 \times 224}
+    \end{equation}
+
+    \item \textbf{Normalization.} Shift to zero minimum and scale to unit maximum:
+    \begin{equation}
+        M \leftarrow \frac{M - \min(M)}{\max(M) - \min(M)}
+    \end{equation}
+
+    \item \textbf{Contrast and clipping.} Multiply by a contrast factor $\gamma$ and clip to $[0, 1]$:
+    \begin{equation}
+        M \leftarrow \mathrm{clip}\bigl(\gamma \cdot M,\; 0,\; 1\bigr)
+    \end{equation}
+    This acts as a soft threshold: pixels with contribution magnitude above $1/\gamma$ of the maximum are fully visible; weaker regions are suppressed proportionally.
+\end{enumerate}
+
+The final visualization is the de-normalized input image modulated by the mask:
+\begin{equation}
+    X_{\mathrm{vis}} = (X \cdot \sigma + \mu) \odot M
+\end{equation}
+where $\mu$ and $\sigma$ are the per-channel ImageNet normalization mean and standard deviation.
+
+\section{Configuration}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrl}
+\toprule
+Parameter & Value & Description \\
+\midrule
+Layer $\ell$ & 7 & Intermediate layer of ResNet-50 \\
+Class $y$ & 889 & ImageNet class index (violin) \\
+$N$ & 20 & Number of top mode channels \\
+Mode ranks $r$ & 0--8 & Modes ordered by class correlation \\
+Median filter size $s$ & 2 & Kernel size for spatial smoothing \\
+Contrast $\gamma$ & 6 & Mask contrast amplification \\
+Attribution method & \multicolumn{2}{l}{Integrated gradients (10 steps, top-1 post-softmax)} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Algorithm}
+
+\begin{algorithm}[H]
+\caption{Mode-Specific Input Visualization}
+\label{alg:vis}
+\begin{algorithmic}[1]
+\Require Input image $X$, network $f$, layer $\ell$, target class $y$, mode $\mathbf{m}$, number of top channels $N$
+\Ensure Masked visualization highlighting input regions driving the mode
+\State $\mathcal{S} \gets \mathrm{top\text{-}N}(\mathbf{m})$ \Comment{Select top channels from mode atom}
+\State $Y \gets \mathrm{softmax}(f(X))$; capture $\mathbf{h}$ at layer $\ell$
+\State $\tilde{J}_{y,k,p} \gets \frac{\partial Y_y}{\partial h_{c_k, p}}$ for all $k \in \{1,\ldots,N\}$, $p \in \{1,\ldots,H\} \times \{1,\ldots,W\}$ \Comment{Projective field}
+\State $G \gets \mathbf{0} \in \mathbb{R}^{3 \times 224 \times 224}$
+\For{$k = 1$ to $N$}
+    \For{each spatial position $p$}
+        \State $R_{k,p} \gets \frac{\partial h_{c_k,p}}{\partial X}$ \Comment{Receptive field of unit $(c_k, p)$}
+        \State $J_{k,p} \gets \tilde{J}_{y,k,p} \cdot R_{k,p}$ \Comment{Combined Jacobian (Eq.~\ref{eq:combined})}
+        \State $C_{k,p} \gets \langle J_{k,p},\, X \rangle$ \Comment{Scalar contribution (Eq.~\ref{eq:contribution})}
+        \State $G \gets G + J_{k,p}$
+        \State Accumulate $J_{k,p}$ into $G^+$ or $G^-$ based on $\mathrm{sign}(C_{k,p})$
+    \EndFor
+\EndFor
+\State $\mathcal{M} \gets G \odot X$ \Comment{Input-weighted contribution map (Eq.~\ref{eq:contrib_map})}
+\State $M \gets \mathrm{MaskPipeline}(\mathcal{M};\; s, \gamma)$ \Comment{$|\cdot|$, median filter, channel avg, normalize, contrast, clip}
+\State \Return $(X \cdot \sigma + \mu) \odot M$
+\end{algorithmic}
+\end{algorithm}
+
+\end{document}

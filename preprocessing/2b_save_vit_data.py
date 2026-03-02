@@ -12,12 +12,15 @@ from IPython import embed
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 
-STEPS = 25
+STEPS = 10
 
-contribution_types = ['act_normgrad']
+contribution_types = ['int_grad']
 contribution_targets = ['top_1']
 use_softmax = [True]
 model_type = 'vit'
+layer_type = 'block' # The type of layer to hook
+# For ViT, could be 'block', 'mlp', or 'attention'
+device = 'cuda:5'
 
 for ct in contribution_types:
     for target in contribution_targets:
@@ -29,16 +32,22 @@ for ct in contribution_types:
                                                                 batch_size=32,
                                                                 num_workers=5,
                                                                 pin_memory=False,
-                                                              imagenet_path='/data/imagenet')
+                                                              imagenet_path='/data/imagenet',
+                                                              device=device,
+                                                              layer_type=layer_type)
 
 
             # Set the device and move the model to it
-            device = 'cuda:0'
+            device = device
             model.to(device)
             model.eval()
-
+            
             # Create the scope for the model
-            scope = bscope.Scope(model, layers)
+            hook_input = False
+            if model_type == 'vit':
+                if layer_type == 'mlp' or layer_type == 'attention' or layer_type == 'attn_heads':
+                    hook_input = True
+            scope = bscope.Scope(model, layers, hook_input=hook_input)
 
             # Set the contribution type
             if ct == 'act_normgrad':
@@ -84,7 +93,20 @@ for ct in contribution_types:
             
             # Choose reduction method based on model type
             if model_type == 'vit':
-                scope.log_start(reduction=['patch_ei_split', 'patch_sum'])
+                if layer_type == 'block':
+                    # Token features
+                    scope.log_start(reduction=['patch_ei_split', 'patch_sum'])
+                elif layer_type == 'mlp':
+                    # MLP neurons
+                    scope.log_start(reduction=['mlp_ei_split', 'mlp_sum'])
+                elif layer_type == 'attention':
+                    # Attention channels
+                    scope.log_start(reduction=['attention_ei_split', 'attention_sum'])
+                elif layer_type == 'attn_heads':
+                    # Attention heads
+                    scope.log_start(reduction=['attn_head_ei_split', 'attn_head_sum'], heads=model.blocks[0].attn.num_heads)
+                else:
+                    raise ValueError("Invalid layer_type '{}' for model_type 'vit'. Expected one of: 'block', 'mlp', 'attention'".format(layer_type))
 
 
             elif model_type == 'resnet50':
@@ -95,11 +117,14 @@ for ct in contribution_types:
             # This identifier is used to save the data
             IDENTIFIER = '{}_{}_{}_{}'.format(ct, target, softmax, model_type)
 
+            if model_type == 'vit':
+                IDENTIFIER += '_{}'.format(layer_type)
+
             if ct == 'int_grad':
                 IDENTIFIER += '_steps_{}'.format(STEPS)
 
             # IDENTIFIER = 'resnet_50_act_normgrad_top_3_softmax'
-            fname = '/data/h5s/{}/'.format(IDENTIFIER)
+            fname = '/data/codec/h5s/{}/'.format(IDENTIFIER)
 
             os.makedirs(os.path.dirname(fname), exist_ok=True)
             fname = os.path.join(fname, 'data.h5')

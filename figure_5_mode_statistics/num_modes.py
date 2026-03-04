@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from IPython import embed
 import bscope.ic as bic
 import os
-FIG = 'F5'
+FIG = 'figure_5'
 
 from fycus import Fycus
 F = Fycus(FIG, extension='svg')

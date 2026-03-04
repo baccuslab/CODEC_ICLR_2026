@@ -19,13 +19,13 @@ import fycus
 # =============================================================================
 
 
-filter_size = 1
-contrast = 3
-LAYER = 9
+filter_size = 2
+contrast = 7
+LAYER = 11
 # CLASS = 486 #cello
 # CLASS = 642 # marimba
 device = 'cuda:0'
-NCHAN = 1
+NCHAN = 5
 CHANNELS = NCHAN
 use_norm = False
 
@@ -52,11 +52,11 @@ DEVICE = next(model.parameters()).device
 # 4. MAIN SCRIPT
 # =============================================================================
 
-img_idx = 19433
+img_idx = 18256 
 CLASS = img_idx // 50
 
-for WHICH_MODE in range(3):
-    mode_summary_path = '/data/h5s/int_grad_top_1_False_resnet50_steps_10/saes/aleph_contributions_positive/mode_summary.h5'
+for WHICH_MODE in range(5):
+    mode_summary_path = '/data/h5s/int_grad_top_1_False_resnet50_steps_10/saes/gimmel_contributions_positive/mode_summary.h5'
 
     mode_summary = bic.ModeSummary(mode_summary_path)
     mode_idx, atom, mode_loadings, corr = bic.get_top_mode(mode_summary, LAYER, CLASS, WHICH_MODE)
@@ -79,7 +79,6 @@ for WHICH_MODE in range(3):
     X.requires_grad_(True)
 
     Y = model(X)
-    Y = torch.nn.Softmax(dim=1)(Y)
 
     activations = inspector.activations[0]
 
@@ -182,9 +181,25 @@ for WHICH_MODE in range(3):
                 Jy_arr[_k, _h, _w] = _Jy * channel_weight
                 JyJz[_k, _h, _w, :, :, :] = J *channel_weight
 
-
     JyJz = JyJz.sum(axis=(0,1,2)).transpose(1,2,0)
-    JyJzNorm = JyJzNorm.sum(axis=(0,1,2)).transpose(1,2,0)
+    JJ = np.copy(JyJz)
+    _JyJz = JyJz - np.min(JyJz)
+    _JyJz = _JyJz / (np.max(_JyJz) )
+    plt.imshow(_JyJz, cmap='gray', interpolation='none', clim=(0,1))
+    plt.show()
+    
+    absJyJz = np.abs(JyJz)
+    absJyJz = absJyJz - np.min(absJyJz)
+    absJyJz = absJyJz / (np.max(absJyJz))
+    plt.imshow(absJyJz, cmap='gray', interpolation='none', clim=(0,1))
+    plt.show()
+
+    
+    absJyJz = np.abs(JyJz)
+    # JyJz -= np.min(JyJz)
+    absJyJz = absJyJz / (np.max(absJyJz) )
+    plt.imshow(absJyJz, cmap='gray', interpolation='none', clim=(0,1))
+    plt.show()
 
     PosJyJz = PossumJyJz[0].transpose(1,2,0)
     NegJyJz = NegsumJyJz[0].transpose(1,2,0)
@@ -192,50 +207,90 @@ for WHICH_MODE in range(3):
     NegJyJzNorm = NegsumJyJzNorm[0].transpose(1,2,0)
 
     # 4e. Visualize results
+    print('Visualizing results...')
+    print('Visualizing results...')
+    print('Visualizing results...')
+    print('Visualizing results...')
     # ---------------------------------------------------------------------
     X_np = X.cpu().detach()[0].permute(1,2,0).numpy()
 
     np_std = np.array(_std)[np.newaxis, np.newaxis, :]
     np_mean = np.array(_mean)[np.newaxis, np.newaxis, :]
     X_vis = X_np * np_std + np_mean
-    # X_vis = X_np-np.min(X_np)
+
+    plt.imshow(X_vis, interpolation='none')
+    plt.gca().set_axis_off()
+    plt.show() # X_vis = X_np-np.min(X_np)
     # X_vis = X_vis / (np.max(X_vis) + 1e-8)
 
     XJyJz = np.einsum('abc,abc->abc', JyJz, X_np)
-    PosXJyJz = np.einsum('abc,abc->abc', PosJyJz, X_np)
-    NegXJyJz = np.einsum('abc,abc->abc', NegJyJz, X_np)
-    PosXJyJzNorm = np.einsum('abc,abc->abc', PosJyJzNorm, X_np)
-    NegXJyJzNorm = np.einsum('abc,abc->abc', NegJyJzNorm, X_np)
-    XJyJzNorm = np.einsum('abc,abc->abc', JyJzNorm, X_np)
+    
+    _XJyJz = np.abs(XJyJz)
+    _XJyJz = _XJyJz - np.min(_XJyJz)
+    _XJyJz = _XJyJz / (np.max(_XJyJz))
+    _XJyJz *= 3
+    plt.imshow(_XJyJz, interpolation='none')
+    plt.title('X * JyJz')
+    plt.show()
 
-    plt.imshow(X_vis, interpolation='none')
+
+    plt.imshow(X_vis*_XJyJz, interpolation='none')
+    plt.title('X * X * JyJz')
+    plt.show()
+
+    # PosXJyJz = np.einsum('abc,abc->abc', PosJyJz, X_np)
+    # NegXJyJz = np.einsum('abc,abc->abc', NegJyJz, X_np)
+    # PosXJyJzNorm = np.einsum('abc,abc->abc', PosJyJzNorm, X_np)
+    # NegXJyJzNorm = np.einsum('abc,abc->abc', NegJyJzNorm, X_np)
+    # XJyJzNorm = np.einsum('abc,abc->abc', JyJzNorm, X_np)
+
+    # plt.imshow(X_vis, interpolation='none')
 
     # Turn of axes and ticks
-    plt.axis('off')
-    F.save('original_image', dpi=150)
+    # plt.axis('off')
+    # F.save('original_image', dpi=150)
     
-    XJyJzN = bic.normalize_symmetric(XJyJz)
-    XJyJzN = XJyJzN - np.min(XJyJzN)
-    XJyJzN = XJyJzN / (np.max(XJyJzN))
-    plt.imshow(XJyJzN, cmap='gray', interpolation='none', clim=(0,1))
+    # XJyJzN = bic.normalize_symmetric(XJyJz)
+    # XJyJzN = XJyJzN - np.min(XJyJzN)
+    # XJyJzN = XJyJzN / (np.max(XJyJzN))
+    # plt.imshow(XJyJzN, cmap='gray', interpolation='none', clim=(0,1))
+    # plt.show()
+
+    a = np.abs(XJyJz) / np.max(np.abs(XJyJz))
+
+    a = [median_filter(a[:,:,c], size=filter_size) for c in range(3)]
+    a = np.stack(a, axis=2)
+
+
+
+    a = a - np.min(a)
+    a = a / (np.max(a))
+    plt.imshow(a, cmap='gray', interpolation='none', clim=(0,1))
+    plt.title('Mask before contrast adjustment')
     plt.show()
 
     a = np.abs(XJyJz) / np.max(np.abs(XJyJz))
 
-    # a = [median_filter(a[:,:,c], size=filter_size) for c in range(3)]
-    # a = np.stack(a, axis=2)
+    a = [median_filter(a[:,:,c], size=filter_size) for c in range(3)]
+    a = np.stack(a, axis=2)
 
-    a = np.mean(a, axis=2)
+
+
+    a = np.max(a, axis=2)
     a = a - np.min(a)
-    a = a / (np.max(a) + 1e-8)
+    a = a / (np.max(a))
+    plt.imshow(a, cmap='gray', interpolation='none', clim=(0,1))
+    plt.title('color collapsebefore contrast adjustment')
+    plt.show()
 
     a = a * contrast
     a = np.clip(a, 0, 1)
-    plt.imshow(a*4, cmap='gray', interpolation='none', clim=(0,1))
+    plt.imshow(a, cmap='gray', interpolation='none', clim=(0,1))
     plt.show()
 
     masked = X_vis * a[:,:,np.newaxis]
     plt.imshow(masked, interpolation='none')
+    plt.title('Masked Image')
     plt.axis('off')
     plt.show()
 

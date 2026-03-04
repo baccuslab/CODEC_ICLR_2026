@@ -11,12 +11,12 @@ import bscope
 import bscope.ic as bic
 from fycus import Fycus
 
-FIG = 'final_figure_3'
+FIG = 'lol'
 F = Fycus(FIG, extension='svg')
 
 # path = '/data/h5s/act_normgrad_top_1_False_resnet50/data.h5'
 # path = '/data/h5s/act_normgrad_top_1_True_resnet50/data.h5'
-path = '/data/h5s/int_grad_top_1_True_resnet50_steps_10/data.h5'
+path = '/data/h5s/act_normgrad_top_1_False_resnet50/data.h5'
 datapath = path
 
 def compute_rowwise_correlations(N, P):

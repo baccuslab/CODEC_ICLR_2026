@@ -1,13 +1,14 @@
 import numpy as np
 import bscope
-from skkm import Figaro
 import pickle
 import scipy.stats as stats
 from scipy import integrate
 import matplotlib.pyplot as plt
+from fycus import Fycus
 
 # F = Figaro('ppresrve', extension='svg')
-F = Figaro('pyy', extension='svg')
+# F = Figaro('ishla', extension='svg')
+F = Fycus('ablashun')
 
 topk=1
 
@@ -22,7 +23,8 @@ runofftargs = []
 # for RESULTS_FILE in ['/home/jbmelander/preserve_rn50_pos_cont.pkl', '/home/jbmelander/preserve_rn50_pos_act.pkl']:
 labels = ['Cont', 'Act']
 ddiffs = []
-for j, RESULTS_FILE in enumerate(['/home/jbmelander/preserve_rn50_pos_cont.pkl', '/home/jbmelander/preserve_rn50_pos_act.pkl']):
+# for j, RESULTS_FILE in enumerate(['/home/jbmelander/1992/intgrad_preserve_contributionspct_1992.pkl', '/home/jbmelander/1992/intgrad_preserve_activationspct_1992.pkl']):
+for j, RESULTS_FILE in enumerate(['/home/jbmelander/1992/intgrad_ablate_contributionspct_1992.pkl', '/home/jbmelander/1992/intgrad_ablate_activationspct_1992.pkl']):
 
     with open(RESULTS_FILE, 'rb') as f:
         perturbation_data = pickle.load(f)
@@ -91,6 +93,7 @@ for j, RESULTS_FILE in enumerate(['/home/jbmelander/preserve_rn50_pos_cont.pkl',
         # if 'preserve' in RESULTS_FILE:
         #     performance_ratios_mean = 1 - np.array(performance_ratios_mean)
         #     offtarget_performance_ratios_mean = 1 - np.array(offtarget_performance_ratios_mean)
+
         targ_auc = bscope.compute_auc(PCTS, performance_ratios_mean)
         offtarg_auc = bscope.compute_auc(PCTS, offtarget_performance_ratios_mean)
 
@@ -105,6 +108,11 @@ plt.plot(LAYERS, ddiffs[0], label='Cont', color='k')
 plt.plot(LAYERS, ddiffs[1], label='Act', color='b')
 plt.xlim(0, 16)
 plt.xticks([0, 4, 8, 12, 15])
+
+if 'ablate' in RESULTS_FILE:
+    plt.ylim(-1.2,0)
+elif 'preserve' in RESULTS_FILE:
+    plt.ylim(0,1.2)
 plt.axhline(0, color='gray', linestyle='--', linewidth=1)
 plt.ylabel('AUC(Offtarget) - AUC(Target)')
 plt.xlabel('Layer')

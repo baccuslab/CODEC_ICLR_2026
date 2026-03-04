@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import sys
 from fycus import Fycus
 
-FIG = 'final_figure_3sparsity'
+FIG = 'figure_3'
 
 F = Fycus(FIG)
 
@@ -42,7 +42,7 @@ for l in range(16):
     plt.xlabel('Sparsity (hoyer)')
     plt.ylabel('Count')
     F.QT()
-    F.save('layer_{}_sparsity_hist'.format(l))
+    F.save('B_layer_{}_sparsity_hist'.format(l))
 
     act_hoyers.append(np.nanmean(A))
     con_hoyers.append(np.nanmean(C))
@@ -60,7 +60,7 @@ plt.legend(['contributions', 'activations'])
 plt.ylabel('avg sparsity (hoyer)')
 plt.xlabel('layer')
 F.QT()
-F.save('avg_sparsity_per_layer')
+F.save('B_avg_sparsity_per_layer')
 
 # print(len(con_hoyers))
 # print(np.arange(16).shape)
@@ -70,4 +70,4 @@ plt.boxplot(bact_hoyers, positions=np.arange(16)+0.1, showfliers=False, boxprops
 plt.xticks([0, 4, 8, 12, 15], ['0', '4', '8', '12', '15'])
 plt.ylim(0, 0.8)
 F.QT()
-F.save('boxplot_sparsity_per_layer')
+F.save('B_boxplot_sparsity_per_layer')

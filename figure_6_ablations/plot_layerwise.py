@@ -2,9 +2,9 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
-from skkm import Figaro
+from fycus import Fycus
 
-F = Figaro('cont', extension='svg')
+F =  Fycus('cont1992', extension='svg')
 topk=1
 
 if topk==1:
@@ -12,7 +12,7 @@ if topk==1:
 else:
     TOPK = 'top5'
 # Single run
-RESULTS_FILE = '/home/jbmelander/Misc/rn50_pos_cont.pkl'
+RESULTS_FILE = '/home/jbmelander/1992/intgrad_ablate_activationspct_1992.pkl'
 with open(RESULTS_FILE, 'rb') as f:
 
     perturbation_data = pickle.load(f)
@@ -33,6 +33,7 @@ for i, layer in enumerate(LAYERS):
     offtarget_performance_ratios_sem = []
     
     for pct in PCTS:
+        print(f"Processing Layer {layer}, {pct}% channels kept...")
         # Extract original and perturbed accuracies for this layer and percentage
         og_accs = np.array(perturbation_data[layer][pct]['og_{}'.format(TOPK)])
         pert_accs = np.array(perturbation_data[layer][pct]['pert_{}'.format(TOPK)])
@@ -40,7 +41,6 @@ for i, layer in enumerate(LAYERS):
         print(og_accs.shape)
         print(pert_accs.shape)
 
-        input()
         
         # Calculate performance ratio (perturbed / original) for target class
         # Assuming target class is the first class (index 0)

@@ -25,13 +25,13 @@ LAYER = 7
 CLASS = 889 #violin
 # CLASS = 642 # marimba
 device = 'cuda:0'
-NCHAN = 1
+NCHAN = 3
 CHANNELS = NCHAN
 use_rf_norm = False
 use_channel_weighting_norm = False
 
 
-F = fycus.Fycus('FINAL')
+F = fycus.Fycus('final_again')
 F.XX(2,2)
 
 
@@ -60,7 +60,8 @@ DEVICE = next(model.parameters()).device
 img_idxs = [22801 ,24323, 24348, 32128, 24314,  32148, 44475, 44485, 24314, 44468]
 
 # modes = [1,3,9,10]
-modes = np.arange(10)
+# modes = np.arange(10)
+modes = [-1, -2, -3, -4]
 classes_represented = set(img_idx // 50 for img_idx in img_idxs)
 print(f'Classes represented in the selected images: {classes_represented}')
 # img_idxs = [32109, 32128]   #, 22801, 22819, 22818, 44453, 44488, 24314, 24319, 32109, 32128]#  22819, 44475, 44485, 44498, 24314, 24316, 24323, 32117, 32128, 32148]

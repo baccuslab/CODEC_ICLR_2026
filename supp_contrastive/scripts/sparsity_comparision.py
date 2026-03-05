@@ -64,4 +64,4 @@ for ax, (blue_data, blue_label) in zip(axes, [
 
 plt.tight_layout()
 F.XX(1.0,1.5) 
-F.save('sparsity_comparision_combined_boxplot_ticks')
+F.save('sparsity_comparision')

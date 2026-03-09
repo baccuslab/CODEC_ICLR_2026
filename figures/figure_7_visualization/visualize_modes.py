@@ -31,7 +31,7 @@ use_rf_norm = False
 use_channel_weighting_norm = False
 
 
-F = fycus.Fycus('final_again')
+F = fycus.Fycus('figure_7')
 F.XX(2,2)
 
 
